@@ -7,6 +7,9 @@ import { GeminiModule } from './gemini/gemini.module';
 import { NotesModule } from './notes/notes.module';
 import { User } from './users/user.entity';
 import { Note } from './notes/note.entity';
+
+import { Task } from './tasks/task.entity';
+import { TasksModule } from './tasks/tasks.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -17,13 +20,14 @@ import { Note } from './notes/note.entity';
       username: process.env.DATABASE_USERNAME || 'root',
       password: process.env.DATABASE_PASSWORD || '123456',
       database: process.env.DATABASE_NAME || 'basededatosmilo',
-      entities: [User, Note],
+        entities: [User, Note, Task],
       synchronize: true, // ⚠️ Solo en desarrollo
     }),
     GeminiModule,
     AuthModule,
     UsersModule,
     NotesModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

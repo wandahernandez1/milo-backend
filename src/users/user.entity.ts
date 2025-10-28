@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Note } from '../notes/note.entity';
+import { Task } from '../tasks/task.entity';
 
 @Entity()
 export class User {
@@ -18,4 +19,7 @@ export class User {
   // Relación con notas
   @OneToMany(() => Note, (note) => note.user)
   notes: Note[];
+    // Relación con tareas
+  @OneToMany(() => Task, (task) => task.user)
+  tasks: Task[];
 }

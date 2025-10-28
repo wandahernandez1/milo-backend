@@ -9,6 +9,12 @@ import {
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { IsString } from 'class-validator';
+
+class RefreshDto {
+  @IsString()
+  refresh_token: string;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -25,11 +31,20 @@ export class AuthController {
     return this.authService.login(user);
   }
 
+  @Post('refresh')
+  async refresh(@Body() refreshDto: RefreshDto) {
+    return this.authService.refreshToken(refreshDto.refresh_token);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   getProfile(@Request() req) {
-    // req.user viene de JwtStrategy
-    const { password, ...user } = req.user; // quitamos password
+    const { password, ...user } = req.user;
     return user;
+  }
+
+  @Post('logout')
+  async logout() {
+    return this.authService.logout();
   }
 }
