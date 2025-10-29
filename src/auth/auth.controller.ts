@@ -5,11 +5,13 @@ import {
   Get,
   Request,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { IsString } from 'class-validator';
+import { LoginDto } from './dto/login.dto';
 
 class RefreshDto {
   @IsString()
@@ -24,12 +26,21 @@ export class AuthController {
   async register(@Body() createUserDto: CreateUserDto) {
     return this.authService.register(createUserDto);
   }
-
-  @Post('login')
-  async login(@Body() body: { email: string; password: string }) {
-    const user = await this.authService.validateUser(body.email, body.password);
-    return this.authService.login(user);
+@Post('login')
+  async login(@Body() loginDto: LoginDto) {
+    try {
+      const user = await this.authService.validateUser(
+        loginDto.email,
+        loginDto.password,
+      );
+      return this.authService.login(user);
+    } catch (err) {
+      throw new UnauthorizedException(
+        err.message || 'Email o contraseña incorrectos',
+      );
+    }
   }
+
 
   @Post('refresh')
   async refresh(@Body() refreshDto: RefreshDto) {

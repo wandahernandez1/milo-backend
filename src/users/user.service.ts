@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException,ConflictException, } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
@@ -16,7 +16,14 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+ async create(createUserDto: CreateUserDto): Promise<User> {
+    const existingUser = await this.findOneByEmail(createUserDto.email);
+    if (existingUser) {
+        // Validación de unicidad manual ANTES de la DB.
+        throw new ConflictException('Este email ya está registrado.');
+    }
+    
+    // Si no existe, procedemos a hashear y guardar
     const salt = await bcrypt.genSalt();
     const hashedPassword = await bcrypt.hash(createUserDto.password, salt);
 
@@ -25,7 +32,12 @@ export class UsersService {
       password: hashedPassword,
     });
 
-    return this.usersRepository.save(newUser);
+    try {
+        return this.usersRepository.save(newUser);
+    } catch (error) {
+        // En caso de que se haya colado por algún race condition (menos común)
+        throw new ConflictException('Error al crear usuario. Email duplicado.');
+    }
   }
 
   async findOneById(id: string): Promise<User> {
