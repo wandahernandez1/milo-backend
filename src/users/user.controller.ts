@@ -1,14 +1,24 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Put, Delete, Body, UseGuards, Req } from '@nestjs/common';
 import { UsersService } from './user.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { User } from './user.entity';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@Controller('users') // la ruta base
+@Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post('register') // POST /users/register
-  async register(@Body() createUserDto: CreateUserDto): Promise<User> {
-    return this.usersService.create(createUserDto);
+  @UseGuards(JwtAuthGuard)
+  @Put('me')
+  async updateProfile(@Req() req, @Body() updateUserDto: UpdateUserDto) {
+    const updatedUser = await this.usersService.updateProfile(req.user.id, updateUserDto);
+    const { password, ...userWithoutPassword } = updatedUser;
+    return { success: true, user: userWithoutPassword };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('me')
+  async deleteProfile(@Req() req) {
+    await this.usersService.deleteProfile(req.user.id);
+    return { success: true, message: 'Cuenta eliminada correctamente' };
   }
 }
