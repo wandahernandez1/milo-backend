@@ -12,7 +12,10 @@ import * as bcrypt from 'bcrypt';
 
 type UserCreateInput =
   | CreateUserDto
-  | (Partial<CreateUserDto> & { avatar?: string | null });
+  | (Partial<CreateUserDto> & {
+      avatar?: string | null;
+      googleAvatar?: string | null;
+    });
 
 @Injectable()
 export class UsersService {
@@ -21,26 +24,26 @@ export class UsersService {
     private readonly usersRepository: Repository<User>,
   ) {}
 
-  // ✅ Marcar usuario como conectado a Google
+  // Marcar usuario como conectado a Google
   async markUserAsConnected(userId: string): Promise<User> {
     const user = await this.findOneById(userId);
     user.googleConnected = true;
     return this.usersRepository.save(user);
   }
 
-  // ✅ Buscar por email
+  // Buscar por email
   async findOneByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  // ✅ Buscar por ID
+  //  Buscar por ID
   async findOneById(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     return user;
   }
 
-  // ✅ Crear usuario (con soporte para login Google sin contraseña)
+  //  Crear usuario (con soporte para login Google sin contraseña)
   async create(userDto: UserCreateInput): Promise<User> {
     if (!userDto.email) {
       throw new ConflictException('El email es obligatorio.');
@@ -62,6 +65,7 @@ export class UsersService {
       email: userDto.email,
       password: hashedPassword,
       avatar: userDto.avatar ?? null,
+      googleAvatar: 'googleAvatar' in userDto ? userDto.googleAvatar : null,
       googleConnected: false,
     };
 
@@ -69,7 +73,7 @@ export class UsersService {
     return this.usersRepository.save(newUser);
   }
 
-  // ✅ Actualizar tokens de Google Calendar
+  //  Actualizar tokens de Google Calendar
   async updateGoogleCalendarTokens(userId: string, tokens: any): Promise<User> {
     const user = await this.findOneById(userId);
 
@@ -86,7 +90,7 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  // ✅ Desconectar Google Calendar
+  // Desconectar Google Calendar
   async disconnectGoogleCalendar(userId: string): Promise<User> {
     const user = await this.findOneById(userId);
 
@@ -98,7 +102,7 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  // ✅ Actualizar perfil
+  // Actualizar perfil
   async updateProfile(
     userId: string,
     updateUserDto: UpdateUserDto,
@@ -114,7 +118,24 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  // ✅ Eliminar usuario
+  //  Actualizar avatar personalizado
+  async updateAvatar(userId: string, avatarUrl: string | null): Promise<User> {
+    const user = await this.findOneById(userId);
+    user.avatar = avatarUrl;
+    return this.usersRepository.save(user);
+  }
+
+  // Actualizar avatar de Google
+  async updateGoogleAvatar(
+    userId: string,
+    googleAvatarUrl: string | null,
+  ): Promise<User> {
+    const user = await this.findOneById(userId);
+    user.googleAvatar = googleAvatarUrl;
+    return this.usersRepository.save(user);
+  }
+
+  //  Eliminar usuario
   async deleteProfile(userId: string): Promise<void> {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');

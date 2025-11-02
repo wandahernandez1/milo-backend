@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventosService } from '../eventos.service';
+import { Logger } from '@nestjs/common';
 
 describe('EventosService', () => {
   let service: EventosService;
@@ -17,17 +18,31 @@ describe('EventosService', () => {
   });
 
   it('debería sincronizar eventos y devolverlos', async () => {
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    const loggerSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
     const userId = '123';
     const eventos = [{ id: 1, title: 'Evento test' }];
 
     const result = await service.syncFromGoogle(userId, eventos);
 
-    expect(consoleSpy).toHaveBeenCalledWith(
+    expect(loggerSpy).toHaveBeenCalledWith(
       `🔄 Sincronizando ${eventos.length} eventos para usuario ${userId}`,
     );
     expect(result).toEqual(eventos);
 
-    consoleSpy.mockRestore();
+    loggerSpy.mockRestore();
+  });
+
+  it('debería registrar un evento correctamente', async () => {
+    const loggerSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    const userId = '123';
+    const evento = { id: 1, summary: 'Reunión importante' };
+
+    await service.registrarEvento(userId, evento);
+
+    expect(loggerSpy).toHaveBeenCalledWith(
+      `📅 Registrando nuevo evento para usuario ${userId}: ${evento.summary}`,
+    );
+
+    loggerSpy.mockRestore();
   });
 });

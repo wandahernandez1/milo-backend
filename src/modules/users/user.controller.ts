@@ -1,11 +1,29 @@
 import { Controller, Put, Delete, Body, UseGuards, Req } from '@nestjs/common';
 import { UsersService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateAvatarDto } from './dto/update-avatar.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @UseGuards(JwtAuthGuard)
+  @Put('avatar')
+  async updateAvatar(@Req() req, @Body() updateAvatarDto: UpdateAvatarDto) {
+    const updatedUser = await this.usersService.updateAvatar(
+      req.user.id,
+      updateAvatarDto.avatar,
+    );
+    const { password, ...userWithoutPassword } = updatedUser;
+    // prioridad de avatar
+    const avatarToReturn =
+      updatedUser.avatar || updatedUser.googleAvatar || null;
+    return {
+      success: true,
+      user: { ...userWithoutPassword, avatar: avatarToReturn },
+    };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Put('me')
@@ -15,7 +33,13 @@ export class UsersController {
       updateUserDto,
     );
     const { password, ...userWithoutPassword } = updatedUser;
-    return { success: true, user: userWithoutPassword };
+    // prioridad de avatar
+    const avatarToReturn =
+      updatedUser.avatar || updatedUser.googleAvatar || null;
+    return {
+      success: true,
+      user: { ...userWithoutPassword, avatar: avatarToReturn },
+    };
   }
 
   @UseGuards(JwtAuthGuard)

@@ -68,7 +68,9 @@ export class AuthController {
   @Get('me')
   getProfile(@Request() req) {
     const { password, ...user } = req.user;
-    return user;
+    // 🔑 Aplicar lógica de prioridad de avatar
+    const avatarToReturn = user.avatar || user.googleAvatar || null;
+    return { ...user, avatar: avatarToReturn };
   }
 
   // Logout

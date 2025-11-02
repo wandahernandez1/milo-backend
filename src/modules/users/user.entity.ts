@@ -9,6 +9,13 @@ export class User {
 
   @Column({ type: 'varchar', length: 100 })
   name: string;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  fullName: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  birthDate: string | null;
+
   @Column({ type: 'varchar', unique: true, length: 150, nullable: false })
   email: string;
 
@@ -17,6 +24,12 @@ export class User {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatar: string | null;
+
+  @Column({ type: 'varchar', length: 7, nullable: true, default: '#6c757d' })
+  avatarColor: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  googleAvatar: string | null;
 
   @Column({ type: 'text', nullable: true })
   googleCalendarAccessToken: string | null;

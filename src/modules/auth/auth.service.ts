@@ -32,7 +32,8 @@ export class AuthService {
     }
 
     const passwordValid = await bcrypt.compare(password, user.password);
-    if (!passwordValid) throw new UnauthorizedException('Credenciales inválidas');
+    if (!passwordValid)
+      throw new UnauthorizedException('Credenciales inválidas');
 
     return user;
   }
@@ -51,6 +52,12 @@ export class AuthService {
       expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION'),
     });
 
+    // 🔑 Lógica de prioridad de avatar:
+    // 1️⃣ Si tiene avatar personalizado → usarlo
+    // 2️⃣ Si no, pero tiene googleAvatar → usar ese
+    // 3️⃣ Si no tiene ninguno → null
+    const avatarToReturn = user.avatar || user.googleAvatar || null;
+
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
@@ -58,7 +65,7 @@ export class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar ?? null,
+        avatar: avatarToReturn,
         googleConnected: user.googleConnected ?? false,
       },
     };
@@ -86,7 +93,9 @@ export class AuthService {
 
   // 🔹 Logout (client-side)
   async logout() {
-    return { message: 'Sesión cerrada correctamente (el token se borra en cliente).' };
+    return {
+      message: 'Sesión cerrada correctamente (el token se borra en cliente).',
+    };
   }
 
   // 🔹 Login con Google
@@ -105,7 +114,9 @@ export class AuthService {
       const picture = payload.picture || null;
 
       if (!email)
-        throw new UnauthorizedException('Google no proporcionó un email válido.');
+        throw new UnauthorizedException(
+          'Google no proporcionó un email válido.',
+        );
 
       let user = await this.usersService.findOneByEmail(email);
 
@@ -114,8 +125,11 @@ export class AuthService {
           name,
           email,
           password: undefined,
-          avatar: picture, // ✅ usa el picture de Google, no userDto
+          googleAvatar: picture, // ✅ guardamos el avatar de Google en googleAvatar
         });
+      } else if (picture && user.googleAvatar !== picture) {
+        // ✅ Si el usuario ya existe, actualizamos su googleAvatar si cambió
+        user = await this.usersService.updateGoogleAvatar(user.id, picture);
       }
 
       return this.login(user);

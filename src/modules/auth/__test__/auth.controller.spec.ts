@@ -68,9 +68,50 @@ describe('AuthController', () => {
   });
 
   it('debería devolver perfil del usuario autenticado', () => {
-    const req = { user: { id: 1, email: 'test@example.com', password: 'x' } };
+    const req = {
+      user: {
+        id: 1,
+        email: 'test@example.com',
+        password: 'x',
+        avatar: null,
+        googleAvatar: null,
+      },
+    };
     const result = controller.getProfile(req);
-    expect(result).toEqual({ id: 1, email: 'test@example.com' });
+    expect(result).toEqual({
+      id: 1,
+      email: 'test@example.com',
+      avatar: null,
+      googleAvatar: null,
+    });
+  });
+
+  it('debería devolver avatar de usuario si existe', () => {
+    const req = {
+      user: {
+        id: 1,
+        email: 'test@example.com',
+        password: 'x',
+        avatar: 'https://example.com/avatar.png',
+        googleAvatar: null,
+      },
+    };
+    const result = controller.getProfile(req);
+    expect(result.avatar).toBe('https://example.com/avatar.png');
+  });
+
+  it('debería devolver googleAvatar si no hay avatar de usuario', () => {
+    const req = {
+      user: {
+        id: 1,
+        email: 'test@example.com',
+        password: 'x',
+        avatar: null,
+        googleAvatar: 'https://google.com/avatar.png',
+      },
+    };
+    const result = controller.getProfile(req);
+    expect(result.avatar).toBe('https://google.com/avatar.png');
   });
 
   it('debería hacer logout', async () => {
