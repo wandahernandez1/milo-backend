@@ -1,22 +1,24 @@
+import * as path from 'path';
 import * as dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter'; 
+import { ValidationPipe, Logger } from '@nestjs/common';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { cors: true });
+  const logger = new Logger('Bootstrap');
+
   app.setGlobalPrefix('api');
 
   app.enableCors({
-    origin: 'http://localhost:5173',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: [process.env.FRONTEND_URL || 'http://localhost:5173'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  //  Validación global
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -25,9 +27,12 @@ async function bootstrap() {
     }),
   );
 
-  // Filtro global de excepciones
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  await app.listen(process.env.PORT || 3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  logger.log(`🚀 Servidor corriendo en puerto ${port}`);
+  logger.log(`🌍 Redirección Google: ${process.env.GOOGLE_REDIRECT_URI}`);
 }
+
 bootstrap();

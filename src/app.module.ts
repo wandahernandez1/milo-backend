@@ -1,15 +1,18 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { GeminiModule } from './gemini/gemini.module';
-import { NotesModule } from './notes/notes.module';
-import { User } from './users/user.entity';
-import { Note } from './notes/note.entity';
+import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { GeminiModule } from './modules/gemini/gemini.module';
+import { EventosModule } from './modules/eventos/eventos.module';
+import { NotesModule } from './modules/notes/notes.module';
+import { TasksModule } from './modules/tasks/tasks.module';
+import { GoogleModule } from './modules/google/google.module';
 
-import { Task } from './tasks/task.entity';
-import { TasksModule } from './tasks/tasks.module';
+import { User } from './modules/users/user.entity';
+import { Note } from './modules/notes/note.entity';
+import { Task } from './modules/tasks/task.entity';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -20,14 +23,20 @@ import { TasksModule } from './tasks/tasks.module';
       username: process.env.DATABASE_USERNAME || 'root',
       password: process.env.DATABASE_PASSWORD || '123456',
       database: process.env.DATABASE_NAME || 'basededatosmilo',
-        entities: [User, Note, Task],
-      synchronize: true, // ⚠️ Solo en desarrollo
+      entities: [User, Note, Task],
+      synchronize: false,
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
     }),
-    GeminiModule,
     AuthModule,
     UsersModule,
+    GeminiModule,
     NotesModule,
     TasksModule,
+    GoogleModule,
+    EventosModule,
   ],
 })
 export class AppModule {}
