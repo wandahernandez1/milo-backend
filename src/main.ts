@@ -14,7 +14,18 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   app.enableCors({
-    origin: [process.env.FRONTEND_URL || 'http://localhost:5173'],
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        process.env.FRONTEND_URL,
+        'http://localhost:5173',
+        'https://milo-backend-production.up.railway.app',
+      ];
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('CORS bloqueado: origen no permitido'));
+      }
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -29,7 +40,8 @@ async function bootstrap() {
 
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT ? Number(process.env.PORT) : 8080;
+
   await app.listen(port);
   logger.log(`🚀 Servidor corriendo en puerto ${port}`);
   logger.log(`🌍 Redirección Google: ${process.env.GOOGLE_REDIRECT_URI}`);
