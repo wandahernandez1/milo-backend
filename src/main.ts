@@ -57,6 +57,13 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`🚀 Servidor corriendo en puerto ${port}`);
   logger.log(`🌍 Redirección Google: ${process.env.GOOGLE_REDIRECT_URI}`);
+  logger.log(
+    `🔑 Google Client ID configurado: ${process.env.GOOGLE_CLIENT_ID ? '✅ Sí' : '❌ No'}`,
+  );
+  logger.log(
+    `🔒 JWT Secret configurado: ${process.env.JWT_SECRET ? '✅ Sí' : '❌ No'}`,
+  );
+  logger.log(`📦 Orígenes CORS permitidos: ${allowedOrigins.join(', ')}`);
 }
 
 bootstrap();

@@ -20,7 +20,7 @@ export class AuthService {
     );
   }
 
-  // 🔹 Validar usuario local
+  //  Validar usuario local
   async validateUser(email: string, password: string): Promise<User> {
     const user = await this.usersService.findOneByEmail(email);
     if (!user) throw new UnauthorizedException('Credenciales inválidas');
@@ -38,7 +38,7 @@ export class AuthService {
     return user;
   }
 
-  // 🔹 Iniciar sesión (local o Google)
+  //  Iniciar sesión (local o Google)
   async login(user: User) {
     const payload = { sub: user.id, email: user.email };
 
@@ -52,10 +52,6 @@ export class AuthService {
       expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION'),
     });
 
-    // 🔑 Lógica de prioridad de avatar:
-    // 1️⃣ Si tiene avatar personalizado → usarlo
-    // 2️⃣ Si no, pero tiene googleAvatar → usar ese
-    // 3️⃣ Si no tiene ninguno → null
     const avatarToReturn = user.avatar || user.googleAvatar || null;
 
     return {
@@ -101,41 +97,94 @@ export class AuthService {
   // 🔹 Login con Google
   async loginWithGoogle(token: string) {
     try {
+      // Validar que exista el token
+      if (!token) {
+        console.error('❌ No se recibió token de Google');
+        throw new UnauthorizedException('Token de Google no proporcionado');
+      }
+
+      // Validar que exista GOOGLE_CLIENT_ID
+      const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+      if (!clientId) {
+        console.error(
+          '❌ GOOGLE_CLIENT_ID no configurado en variables de entorno',
+        );
+        throw new UnauthorizedException(
+          'Configuración de Google no disponible',
+        );
+      }
+
+      console.log('🔐 Verificando token de Google...');
+      console.log(
+        '📋 Client ID configurado:',
+        clientId?.substring(0, 20) + '...',
+      );
+
       const ticket = await this.googleClient.verifyIdToken({
         idToken: token,
-        audience: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+        audience: clientId,
       });
 
       const payload = ticket.getPayload();
-      if (!payload) throw new UnauthorizedException('Token de Google inválido');
+      if (!payload) {
+        console.error('❌ Payload de Google vacío');
+        throw new UnauthorizedException('Token de Google inválido');
+      }
 
       const email = payload.email || '';
       const name = payload.name || 'Usuario';
       const picture = payload.picture || null;
 
-      if (!email)
+      console.log('✅ Token verificado para:', email);
+
+      if (!email) {
+        console.error('❌ Google no proporcionó email');
         throw new UnauthorizedException(
           'Google no proporcionó un email válido.',
         );
+      }
 
       let user = await this.usersService.findOneByEmail(email);
 
       if (!user) {
+        console.log('👤 Creando nuevo usuario:', email);
         user = await this.usersService.create({
           name,
           email,
           password: undefined,
-          googleAvatar: picture, // ✅ guardamos el avatar de Google en googleAvatar
+          googleAvatar: picture,
         });
       } else if (picture && user.googleAvatar !== picture) {
-        // ✅ Si el usuario ya existe, actualizamos su googleAvatar si cambió
+        console.log('🔄 Actualizando avatar de Google para:', email);
         user = await this.usersService.updateGoogleAvatar(user.id, picture);
       }
 
+      console.log('✅ Login exitoso para:', email);
       return this.login(user);
     } catch (e) {
       console.error('❌ ERROR DE VALIDACIÓN DE GOOGLE ID TOKEN:', e);
-      throw new UnauthorizedException('Error en autenticación con Google');
+      console.error('❌ Tipo de error:', e.constructor.name);
+      console.error('❌ Mensaje:', e.message);
+
+      // Proporcionar mensajes más específicos según el tipo de error
+      if (e.message?.includes('Token used too early')) {
+        throw new UnauthorizedException(
+          'Token de Google no válido aún (problema de reloj)',
+        );
+      }
+      if (e.message?.includes('Token used too late')) {
+        throw new UnauthorizedException('Token de Google expirado');
+      }
+      if (e.message?.includes('Invalid token signature')) {
+        throw new UnauthorizedException('Firma de token de Google inválida');
+      }
+      if (e.message?.includes('Wrong number of segments')) {
+        throw new UnauthorizedException('Formato de token de Google inválido');
+      }
+
+      throw new UnauthorizedException(
+        e.message || 'Error en autenticación con Google',
+      );
     }
   }
 }
