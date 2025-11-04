@@ -47,11 +47,8 @@ export class EventosController {
   @UseGuards(JwtAuthGuard)
   @Post()
   async createEvento(@Req() req: any, @Body() body: any) {
-    console.log('📦 Body recibido:', JSON.stringify(body, null, 2));
     const userId = req.user.id;
     const { summary, description, natural_time, start, end } = body;
-
-    console.log('📦 Body recibido:', body);
 
     if (!summary) {
       throw new BadRequestException(

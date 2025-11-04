@@ -8,6 +8,7 @@ import { EventosModule } from './modules/eventos/eventos.module';
 import { NotesModule } from './modules/notes/notes.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { GoogleModule } from './modules/google/google.module';
+import { NewsModule } from './modules/news/news.module';
 
 import { User } from './modules/users/user.entity';
 import { Note } from './modules/notes/note.entity';
@@ -41,6 +42,7 @@ import { Task } from './modules/tasks/task.entity';
     TasksModule,
     GoogleModule,
     EventosModule,
+    NewsModule,
   ],
 })
 export class AppModule {}

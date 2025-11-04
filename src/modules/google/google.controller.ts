@@ -43,10 +43,6 @@ export class GoogleController {
     @Query('state') state: string,
     @Res() res: express.Response,
   ) {
-    console.log('📩 Callback recibido de Google:');
-    console.log('  code:', code);
-    console.log('  state:', state);
-
     if (!state) {
       console.warn('⚠️ No se recibió state (ID de usuario).');
       return res.redirect(`${process.env.FRONTEND_URL}/calendar?error=no_user`);
@@ -54,7 +50,6 @@ export class GoogleController {
 
     try {
       const tokens = await this.googleService.getTokens(code, state);
-      console.log('🎟️ Tokens obtenidos:', tokens);
 
       await this.googleService.markUserAsConnected(state);
 
@@ -76,9 +71,6 @@ export class GoogleController {
     @Query('timeMin') timeMin: string,
     @Query('timeMax') timeMax: string,
   ) {
-    console.log('👤 Usuario solicitando eventos:', req.user);
-    console.log('⏰ timeMin:', timeMin);
-    console.log('⏰ timeMax:', timeMax);
     const userId = req.user.id;
 
     return this.googleService.getCalendarEvents(userId, timeMin, timeMax);
@@ -88,10 +80,6 @@ export class GoogleController {
   @Post('events')
   @UseGuards(JwtAuthGuard)
   async createEvent(@Req() req: any, @Body() body: ChatEventDto) {
-    // 🔑 Tipificado con ChatEventDto
-    console.log('📩 POST /google/events recibido');
-    console.log('Usuario:', req.user);
-    console.log('Body:', body);
     const userId = req.user.id;
     return this.googleService.createEvent(userId, body);
   }

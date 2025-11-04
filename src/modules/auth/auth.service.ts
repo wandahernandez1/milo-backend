@@ -114,12 +114,6 @@ export class AuthService {
         );
       }
 
-      console.log('🔐 Verificando token de Google...');
-      console.log(
-        '📋 Client ID configurado:',
-        clientId?.substring(0, 20) + '...',
-      );
-
       const ticket = await this.googleClient.verifyIdToken({
         idToken: token,
         audience: clientId,
@@ -135,8 +129,6 @@ export class AuthService {
       const name = payload.name || 'Usuario';
       const picture = payload.picture || null;
 
-      console.log('✅ Token verificado para:', email);
-
       if (!email) {
         console.error('❌ Google no proporcionó email');
         throw new UnauthorizedException(
@@ -147,7 +139,6 @@ export class AuthService {
       let user = await this.usersService.findOneByEmail(email);
 
       if (!user) {
-        console.log('👤 Creando nuevo usuario:', email);
         user = await this.usersService.create({
           name,
           email,
@@ -155,11 +146,9 @@ export class AuthService {
           googleAvatar: picture,
         });
       } else if (picture && user.googleAvatar !== picture) {
-        console.log('🔄 Actualizando avatar de Google para:', email);
         user = await this.usersService.updateGoogleAvatar(user.id, picture);
       }
 
-      console.log('✅ Login exitoso para:', email);
       return this.login(user);
     } catch (e) {
       console.error('❌ ERROR DE VALIDACIÓN DE GOOGLE ID TOKEN:', e);
