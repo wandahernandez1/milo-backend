@@ -149,12 +149,18 @@ export class GoogleService {
 
   async getCalendarEvents(userId: string, timeMin: string, timeMax: string) {
     try {
+      console.log(`📅 Obteniendo eventos para usuario: ${userId}`);
+
       const user = await this.usersService.findOneById(userId);
-      if (!user) throw new NotFoundException('Usuario no encontrado');
+      if (!user) {
+        console.error(`❌ Usuario ${userId} no encontrado`);
+        throw new NotFoundException('Usuario no encontrado');
+      }
 
       if (!user.googleCalendarAccessToken || !user.googleCalendarRefreshToken) {
+        console.error('❌ Tokens de Google Calendar no encontrados en la BD');
         throw new UnauthorizedException(
-          'Cuenta de Google no conectada correctamente.',
+          'Cuenta de Google no conectada correctamente. Por favor, reconecta tu cuenta.',
         );
       }
 
@@ -180,7 +186,6 @@ export class GoogleService {
         auth: this.oauth2Client,
       });
 
-      // Agregar maxResults para limitar la cantidad de eventos y mejorar performance
       const eventsResponse = await calendar.events.list({
         calendarId: 'primary',
         timeMin,
@@ -189,6 +194,8 @@ export class GoogleService {
         singleEvents: true,
         orderBy: 'startTime',
       });
+
+      const eventCount = eventsResponse.data.items?.length || 0;
 
       return eventsResponse.data.items || [];
     } catch (err) {
