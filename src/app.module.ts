@@ -24,7 +24,11 @@ import { Task } from './modules/tasks/task.entity';
       password: process.env.DATABASE_PASSWORD || '123456',
       database: process.env.DATABASE_NAME || 'basededatosmilo',
       entities: [User, Note, Task],
-      synchronize: false,
+
+      synchronize:
+        process.env.TYPEORM_SYNC === 'true' ||
+        process.env.NODE_ENV !== 'production',
+      logging: process.env.NODE_ENV !== 'production',
       ssl:
         process.env.NODE_ENV === 'production'
           ? { rejectUnauthorized: false }
