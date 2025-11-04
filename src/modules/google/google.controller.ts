@@ -81,11 +81,6 @@ export class GoogleController {
         timeMax,
       );
 
-      const duration = Date.now() - startTime;
-      console.log(
-        `✅ Eventos obtenidos en ${duration}ms (${events.length} eventos)`,
-      );
-
       return events;
     } catch (error) {
       const duration = Date.now() - startTime;

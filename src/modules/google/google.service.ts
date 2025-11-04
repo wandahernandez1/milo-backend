@@ -149,8 +149,6 @@ export class GoogleService {
 
   async getCalendarEvents(userId: string, timeMin: string, timeMax: string) {
     try {
-      console.log(`📅 Obteniendo eventos para usuario: ${userId}`);
-
       const user = await this.usersService.findOneById(userId);
       if (!user) {
         console.error(`❌ Usuario ${userId} no encontrado`);
