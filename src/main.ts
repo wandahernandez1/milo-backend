@@ -13,10 +13,37 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
+  // Configuración de CORS más flexible
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://milo-frontend-six.vercel.app',
+    process.env.FRONTEND_URL, // Agregar variable de entorno para flexibilidad
+  ].filter(Boolean); // Eliminar valores undefined
+
   app.enableCors({
-    origin: ['http://localhost:5173', 'https://milo-frontend-six.vercel.app'],
+    origin: (origin, callback) => {
+      // Permitir peticiones sin origin (mobile apps, curl, etc)
+      if (!origin) return callback(null, true);
+
+      // Permitir orígenes de Vercel (*.vercel.app)
+      if (origin.includes('vercel.app')) {
+        return callback(null, true);
+      }
+
+      // Verificar si el origin está en la lista permitida
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        return callback(null, true);
+      }
+
+      logger.warn(`❌ Origen bloqueado por CORS: ${origin}`);
+      callback(new Error('No permitido por CORS'));
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Authorization'],
+    maxAge: 3600, // Cache preflight requests por 1 hora
   });
 
   app.useGlobalPipes(
