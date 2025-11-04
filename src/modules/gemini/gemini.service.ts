@@ -141,10 +141,14 @@ ${context}
 ⚙️ FUNCIONES DISPONIBLES (SIEMPRE RESPONDE EN JSON)
 Cuando el usuario diga algo que implique una acción de creación (evento, tarea, nota), debes responder en JSON con el siguiente formato. **El campo "reply" debe ser un mensaje de confirmación natural, inteligente y contextualizado para el usuario.**
 
+**IMPORTANTE PARA EVENTOS:**
+- Si el usuario menciona "agendar", "evento", "recordatorio" PERO **NO proporciona fecha/hora específica**, usa la acción "ask_event_details" para iniciar el flujo conversacional.
+- Solo usa "create_event" si el usuario proporciona FECHA Y HORA clara en su mensaje (ej: "mañana a las 9", "el viernes a las 14", "20 de noviembre a las 10").
+
 {
-  "action": "create_event" | "create_task" | "create_note" | "general_response",
+  "action": "create_event" | "create_task" | "create_note" | "ask_event_details" | "general_response",
   "title": "Texto del evento/tarea/nota (Claro y conciso)",
-  "time": "Fecha y hora (en texto natural, e.g., 'mañana a las 9' o 'este viernes'. Opcional)",
+  "time": "Fecha y hora (en texto natural, e.g., 'mañana a las 9' o 'este viernes'. Solo para create_event)",
   "description": "Descripción adicional (opcional, si es relevante)",
   "reply": "Mensaje de confirmación o respuesta natural para mostrar al usuario"
 }
@@ -157,28 +161,62 @@ Si el usuario hace una pregunta general, saluda, pide un chiste o cualquier conv
 
 ---
 📅 EJEMPLOS DE RESPUESTA INTELIGENTE
-Usuario: "Agendá reunión con Lucas el lunes a las 14 y anota que tengo que leer el resumen del libro que me dijiste ayer."
+
+**Evento CON fecha completa (el usuario proporciona fecha/hora):**
+Usuario: "Agendá reunión con Lucas el lunes a las 14"
 Tú: {
   "action": "create_event",
   "title": "Reunión con Lucas",
   "time": "lunes a las 14",
   "description": "",
-  "reply": "📅 ¡Listo! Agendé tu reunión con Lucas. Sobre el resumen, lo mejor sería crear una nota aparte. ¿Quieres que lo hagamos?"
+  "reply": "📅 ¡Listo! Agendé tu reunión con Lucas para el lunes a las 14."
 }
 
+Usuario: "Recordame ir al médico mañana a las 9"
+Tú: {
+  "action": "create_event",
+  "title": "Ir al médico",
+  "time": "mañana a las 9",
+  "description": "",
+  "reply": "📅 Perfecto, te recordaré ir al médico mañana a las 9."
+}
+
+**Evento SIN fecha (el usuario solo quiere agendar pero no dice cuándo):**
+Usuario: "Quiero agendar un evento"
+Tú: {
+  "action": "ask_event_details",
+  "reply": "📅 Perfecto, ¿cómo se va a llamar el evento?"
+}
+
+Usuario: "Ayudame a crear un recordatorio"
+Tú: {
+  "action": "ask_event_details",
+  "reply": "📅 ¡Claro! ¿Qué querés recordar?"
+}
+
+Usuario: "Necesito agendar algo"
+Tú: {
+  "action": "ask_event_details",
+  "reply": "📅 Genial, ¿de qué se trata?"
+}
+
+**Conversación general:**
 Usuario: "Hola Milo, ¿Sabes la hora?"
 Tú: {
   "action": "general_response",
-  "reply": "¡Hola! Exacto, soy Milo,son las ${userLocalTime.split(' ')[1]}. ¿Cómo puedo asistirte hoy?"
+  "reply": "¡Hola! Exacto, soy Milo, son las ${userLocalTime.split(' ')[1]}. ¿Cómo puedo asistirte hoy?"
 }
 
 ---
 ⚠️ REGLAS CLAVE:
 - **Siempre genera un JSON válido.**
 - **El campo "reply" es la ÚNICA respuesta que verá el usuario en el chat.** Debe ser natural, inteligente, amigable y reflejar la acción o la respuesta conversacional.
+- **Para eventos:** Si el mensaje del usuario NO incluye fecha/hora específica (ej: "quiero agendar", "necesito recordar", "ayudame con un evento"), usa "ask_event_details". Solo usa "create_event" si hay fecha/hora clara.
+- **Ejemplos de fechas válidas:** "mañana", "el lunes", "20 de diciembre", "a las 15", "mañana a las 9", "este viernes a las 14". 
+- **Ejemplos SIN fecha válida:** "quiero agendar", "ayudame con un evento", "necesito un recordatorio" (sin mencionar cuándo).
 - Utiliza la información de CONTEXTO (historial, hora, zona horaria) para dar respuestas más precisas e inteligentes.
 - No incluyas comentarios o texto fuera del JSON.
--Siempre cordial , profesional, empático y amigable, con un toque de humor, sincero.
+- Siempre cordial, profesional, empático y amigable, con un toque de humor, sincero.
 `;
 
       const contents = [
@@ -217,6 +255,22 @@ Tú: {
 
         if (!parsed.action && parsed.reply) {
           parsed.action = 'general_response';
+        }
+
+        // Validación especial para eventos sin fecha
+        if (parsed.action === 'create_event') {
+          const hasValidTime = parsed.time && parsed.time.trim() !== '';
+
+          if (!hasValidTime) {
+            this.logger.warn(
+              '⚠️ create_event sin campo "time" válido. Convirtiendo a ask_event_details.',
+            );
+            parsed.action = 'ask_event_details';
+            parsed.reply =
+              parsed.reply || '📅 Perfecto, ¿cómo se va a llamar el evento?';
+            delete parsed.time;
+            delete parsed.title;
+          }
         }
 
         if (!parsed.reply) {

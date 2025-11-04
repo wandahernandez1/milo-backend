@@ -132,8 +132,9 @@ export class GoogleService {
     oauth2Client.setCredentials({ refresh_token: refreshToken });
 
     try {
+      console.log('🔄 Intentando refrescar token de Google...');
       const { credentials } = await oauth2Client.refreshAccessToken();
-
+      console.log('✅ Token refrescado exitosamente');
       return credentials;
     } catch (error) {
       console.error(
@@ -141,7 +142,7 @@ export class GoogleService {
         error.response?.data || error.message,
       );
       throw new UnauthorizedException(
-        'No se pudo refrescar el token de Google.',
+        'No se pudo refrescar el token de Google. Por favor, reconecta tu cuenta.',
       );
     }
   }
@@ -178,16 +179,20 @@ export class GoogleService {
         version: 'v3',
         auth: this.oauth2Client,
       });
+
+      // Agregar maxResults para limitar la cantidad de eventos y mejorar performance
       const eventsResponse = await calendar.events.list({
         calendarId: 'primary',
         timeMin,
         timeMax,
+        maxResults: 250,
         singleEvents: true,
         orderBy: 'startTime',
       });
 
       return eventsResponse.data.items || [];
     } catch (err) {
+      console.error('❌ Error en getCalendarEvents:', err.message);
       throw new UnauthorizedException(
         `Error obteniendo eventos: ${err.message}`,
       );

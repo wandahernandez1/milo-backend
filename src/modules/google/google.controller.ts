@@ -72,8 +72,26 @@ export class GoogleController {
     @Query('timeMax') timeMax: string,
   ) {
     const userId = req.user.id;
+    const startTime = Date.now();
 
-    return this.googleService.getCalendarEvents(userId, timeMin, timeMax);
+    try {
+      const events = await this.googleService.getCalendarEvents(
+        userId,
+        timeMin,
+        timeMax,
+      );
+
+      const duration = Date.now() - startTime;
+      console.log(
+        `✅ Eventos obtenidos en ${duration}ms (${events.length} eventos)`,
+      );
+
+      return events;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`❌ Error obteniendo eventos después de ${duration}ms`);
+      throw error;
+    }
   }
 
   // Crear evento

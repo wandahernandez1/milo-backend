@@ -19,7 +19,6 @@ export class EventosController {
     private readonly googleService: GoogleService,
   ) {}
 
-  // 🗓️ Sincronizar con Google Calendar
   @UseGuards(JwtAuthGuard)
   @Get('sync')
   async syncEventos(@Req() req: any) {
@@ -43,7 +42,6 @@ export class EventosController {
     return { eventos: googleEventos };
   }
 
-  // ✨ Crear evento (desde chat o desde formulario)
   @UseGuards(JwtAuthGuard)
   @Post()
   async createEvento(@Req() req: any, @Body() body: any) {
@@ -59,17 +57,23 @@ export class EventosController {
     let eventStart = start;
     let eventEnd = end;
 
-    // 🧠 Permitir usar summary como texto natural si no viene natural_time
     const textoFecha = natural_time || summary;
 
     if (textoFecha && (!start || !end)) {
+      // Validar que natural_time no esté vacío o sea inválido
+      if (!natural_time || natural_time.trim() === '') {
+        throw new BadRequestException(
+          'Necesito saber cuándo querés agendar el evento. Por favor, indicá una fecha y hora.',
+        );
+      }
+
       const parsed = chrono.parseDate(textoFecha, new Date(), {
         forwardDate: true,
       });
 
       if (!parsed) {
         throw new BadRequestException(
-          'No pude entender la fecha u hora del evento.',
+          `No pude entender la fecha "${textoFecha}". Intentá con algo como "mañana a las 15" o "20 de diciembre a las 10".`,
         );
       }
 
@@ -92,7 +96,7 @@ export class EventosController {
       );
     }
 
-    // 👉 Crear el evento en Google Calendar
+    //  Crear el evento en Google Calendar
     const createdEvent = await this.googleService.createCalendarEvent(userId, {
       summary,
       description,
@@ -100,7 +104,6 @@ export class EventosController {
       end: eventEnd,
     });
 
-    // 🗃️ Registrar localmente si querés mantener una copia
     await this.eventosService.registrarEvento(userId, createdEvent);
 
     return {
