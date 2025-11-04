@@ -13,25 +13,21 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  // Configuración de CORS más flexible
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'https://milo-frontend-six.vercel.app',
-    process.env.FRONTEND_URL, // Agregar variable de entorno para flexibilidad
-  ].filter(Boolean); // Eliminar valores undefined
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Permitir peticiones sin origin (mobile apps, curl, etc)
       if (!origin) return callback(null, true);
 
-      // Permitir orígenes de Vercel (*.vercel.app)
       if (origin.includes('vercel.app')) {
         return callback(null, true);
       }
 
-      // Verificar si el origin está en la lista permitida
       if (allowedOrigins.indexOf(origin) !== -1) {
         return callback(null, true);
       }
@@ -43,7 +39,7 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     exposedHeaders: ['Authorization'],
-    maxAge: 3600, // Cache preflight requests por 1 hora
+    maxAge: 3600,
   });
 
   app.useGlobalPipes(
