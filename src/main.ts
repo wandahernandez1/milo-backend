@@ -52,10 +52,12 @@ async function bootstrap() {
 
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const port = process.env.PORT ? Number(process.env.PORT) : 8080;
+  const port = process.env.PORT || 3000;
+  const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
 
-  await app.listen(port);
-  logger.log(`🚀 Servidor corriendo en puerto ${port}`);
+  await app.listen(port, host);
+  logger.log(`🚀 Servidor corriendo en ${host}:${port}`);
+  logger.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
   logger.log(`🌍 Redirección Google: ${process.env.GOOGLE_REDIRECT_URI}`);
   logger.log(
     `🔑 Google Client ID configurado: ${process.env.GOOGLE_CLIENT_ID ? '✅ Sí' : '❌ No'}`,
