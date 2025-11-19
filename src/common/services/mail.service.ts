@@ -38,52 +38,80 @@ export class MailService {
     try {
       console.log('📧 Inicializando MailService con Gmail API (OAuth2)...');
 
+      // Verificar variables de entorno críticas
+      const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+      const clientSecret = this.configService.get<string>(
+        'GOOGLE_CLIENT_SECRET',
+      );
+      const refreshToken = this.configService.get<string>(
+        'GMAIL_REFRESH_TOKEN',
+      );
+      const mailUser = this.configService.get<string>('MAIL_USER');
+
+      console.log('🔍 Verificando configuración OAuth2:');
+      console.log(
+        '  ✓ GOOGLE_CLIENT_ID:',
+        clientId
+          ? `Configurado (${clientId.substring(0, 20)}...)`
+          : '❌ NO CONFIGURADO',
+      );
+      console.log(
+        '  ✓ GOOGLE_CLIENT_SECRET:',
+        clientSecret ? 'Configurado' : '❌ NO CONFIGURADO',
+      );
+      console.log(
+        '  ✓ GMAIL_REFRESH_TOKEN:',
+        refreshToken
+          ? `Configurado (${refreshToken.length} chars)`
+          : '❌ NO CONFIGURADO',
+      );
+      console.log('  ✓ MAIL_USER:', mailUser || '❌ NO CONFIGURADO');
+
+      if (!clientId || !clientSecret || !refreshToken || !mailUser) {
+        throw new Error(
+          'Variables de entorno de Gmail no configuradas correctamente',
+        );
+      }
+
       // Obtener access token usando el refresh token
+      console.log('🔑 Obteniendo access token...');
       const accessToken = await this.getAccessToken();
+      console.log('✓ Access token obtenido');
 
       // Configurar transporter con OAuth2
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           type: 'OAuth2',
-          user: this.configService.get<string>('MAIL_USER'),
-          clientId: this.configService.get<string>('GOOGLE_CLIENT_ID'),
-          clientSecret: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
-          refreshToken: this.configService.get<string>('GMAIL_REFRESH_TOKEN'),
+          user: mailUser,
+          clientId: clientId,
+          clientSecret: clientSecret,
+          refreshToken: refreshToken,
           accessToken: accessToken,
         },
       } as any);
 
       // Log de configuración al iniciar
       const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-      const mailUser = this.configService.get<string>('MAIL_USER');
-      const gmailRefreshToken = this.configService.get<string>(
-        'GMAIL_REFRESH_TOKEN',
-      );
-
       console.log('📧 MailService inicializado con Gmail API (OAuth2)');
       console.log(
         '🌍 FRONTEND_URL:',
         frontendUrl || 'NO CONFIGURADA (usando localhost por defecto)',
       );
-      console.log('📨 MAIL_USER:', mailUser || 'NO CONFIGURADO');
-      console.log(
-        '🔑 GMAIL_REFRESH_TOKEN:',
-        gmailRefreshToken
-          ? `Configurado (${gmailRefreshToken.length} caracteres)`
-          : 'NO CONFIGURADO',
-      );
 
       await this.verifyConnection();
       this.isInitialized = true;
+      console.log('✅ MailService completamente inicializado y listo');
     } catch (error) {
       console.error('❌ Error inicializando Gmail API:', error.message);
+      console.error('❌ Stack completo:', error.stack);
       console.error('⚠️ Verifica que hayas configurado correctamente:');
       console.error('   - GOOGLE_CLIENT_ID');
       console.error('   - GOOGLE_CLIENT_SECRET');
       console.error('   - GMAIL_REFRESH_TOKEN');
       console.error('   - MAIL_USER');
       this.isInitialized = false;
+      throw error; // Propagar error para que sea visible
     }
   }
 
@@ -125,14 +153,33 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string) {
+    console.log(
+      '📧 [sendPasswordResetEmail] Iniciando envío de email a:',
+      email,
+    );
+    console.log(
+      '🔍 [sendPasswordResetEmail] Estado de inicialización:',
+      this.isInitialized,
+    );
+
     // Verificar que el servicio esté inicializado
     if (!this.isInitialized) {
       console.error(
         '❌ MailService no está inicializado. Intentando reinicializar...',
       );
-      await this.initializeTransporter();
+      try {
+        await this.initializeTransporter();
+      } catch (error) {
+        console.error(
+          '❌ [sendPasswordResetEmail] Error reinicializando:',
+          error.message,
+        );
+        throw new Error(
+          'El servicio de correo no está disponible: ' + error.message,
+        );
+      }
       if (!this.isInitialized) {
-        throw new Error('El servicio de correo no está disponible');
+        throw new Error('El servicio de correo no pudo ser inicializado');
       }
     }
 

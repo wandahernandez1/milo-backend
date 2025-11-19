@@ -34,7 +34,7 @@ export class AuthService {
 
     if (!user.password) {
       throw new UnauthorizedException(
-        'Usuario registrado con Google, use el login con Google.',
+        'Usuario registrado con Google. Puedes establecer una contraseña desde tu perfil o usar el login con Google.',
       );
     }
 
@@ -183,48 +183,66 @@ export class AuthService {
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {
-    const user = await this.usersService.findOneByEmail(email);
+    try {
+      console.log('🔐 [forgotPassword] Iniciando proceso para:', email);
 
-    if (!user) {
+      const user = await this.usersService.findOneByEmail(email);
+
+      if (!user) {
+        console.log('⚠️ [forgotPassword] Usuario no encontrado:', email);
+        return {
+          message: 'Si el correo existe, recibirás un enlace de recuperación.',
+        };
+      }
+
+      if (!user.password) {
+        console.log(
+          '⚠️ [forgotPassword] Usuario sin contraseña (registro con Google):',
+          email,
+        );
+        return {
+          message: 'Si el correo existe, recibirás un enlace de recuperación.',
+        };
+      }
+
+      // Generar token de recuperacion
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const hashedToken = crypto
+        .createHash('sha256')
+        .update(resetToken)
+        .digest('hex');
+
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+      console.log('💾 [forgotPassword] Guardando token en BD...');
+      // Guarda token hasheado en la base de datos
+      await this.usersService.saveResetPasswordToken(
+        user.id,
+        hashedToken,
+        expiresAt,
+      );
+
+      console.log('🔐 Token guardado en BD, procediendo a enviar email...');
+      console.log('📧 Email destino:', email);
+      console.log(
+        '🎫 Token generado (primeros 10 chars):',
+        resetToken.substring(0, 10) + '...',
+      );
+
+      // Envia email con el token sin hashear
+      console.log('📨 [forgotPassword] Llamando a sendPasswordResetEmail...');
+      await this.mailService.sendPasswordResetEmail(email, resetToken);
+
+      console.log('✅ Proceso de forgot-password completado');
+
       return {
         message: 'Si el correo existe, recibirás un enlace de recuperación.',
       };
+    } catch (error) {
+      console.error('❌ [forgotPassword] Error en proceso:', error);
+      console.error('❌ [forgotPassword] Stack:', error.stack);
+      throw error; // Re-lanzar para que lo capture el filtro global
     }
-
-    if (!user.password) {
-      return {
-        message: 'Si el correo existe, recibirás un enlace de recuperación.',
-      };
-    }
-
-    // Generar token de recuperacion
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(resetToken)
-      .digest('hex');
-
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-    // Guarda token hasheado en la base de datos
-    await this.usersService.saveResetPasswordToken(
-      user.id,
-      hashedToken,
-      expiresAt,
-    );
-
-    console.log('🔐 Token guardado en BD, procediendo a enviar email...');
-    console.log('📧 Email destino:', email);
-    console.log('🎫 Token generado (primeros 10 chars):', resetToken.substring(0, 10) + '...');
-
-    // Envia email con el token sin hashear
-    await this.mailService.sendPasswordResetEmail(email, resetToken);
-
-    console.log('✅ Proceso de forgot-password completado');
-
-    return {
-      message: 'Si el correo existe, recibirás un enlace de recuperación.',
-    };
   }
 
   //  Restablece contraseña con token
@@ -247,5 +265,17 @@ export class AuthService {
     await this.usersService.updatePassword(user.id, newPassword);
 
     return { message: 'Contraseña actualizada correctamente.' };
+  }
+
+  // Establece contraseña para usuarios que no tienen (registrados con Google)
+  async setPassword(
+    userId: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    await this.usersService.setPassword(userId, newPassword);
+    return {
+      message:
+        'Contraseña establecida correctamente. Ahora puedes iniciar sesión con email y contraseña.',
+    };
   }
 }

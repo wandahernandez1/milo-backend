@@ -14,6 +14,7 @@ import { IsString } from 'class-validator';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
 
 //  DTO para refrescar token
 class RefreshDto {
@@ -72,7 +73,11 @@ export class AuthController {
     const { password, ...user } = req.user;
     // Aplicar lógica de prioridad de avatar
     const avatarToReturn = user.avatar || user.googleAvatar || null;
-    return { ...user, avatar: avatarToReturn };
+    return {
+      ...user,
+      avatar: avatarToReturn,
+      hasPassword: !!req.user.password,
+    };
   }
 
   // Logout
@@ -94,5 +99,12 @@ export class AuthController {
       resetPasswordDto.token,
       resetPasswordDto.newPassword,
     );
+  }
+
+  // Establecer contraseña para usuarios sin contraseña (registrados con Google)
+  @UseGuards(JwtAuthGuard)
+  @Post('set-password')
+  async setPassword(@Request() req, @Body() setPasswordDto: SetPasswordDto) {
+    return this.authService.setPassword(req.user.id, setPasswordDto.password);
   }
 }

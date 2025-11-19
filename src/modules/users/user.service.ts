@@ -175,4 +175,21 @@ export class UsersService {
       resetPasswordExpires: null,
     });
   }
+
+  // Establece contraseña para usuarios que no tienen (registrados con Google)
+  async setPassword(userId: string, newPassword: string): Promise<User> {
+    const user = await this.findOneById(userId);
+
+    if (user.password) {
+      throw new ConflictException(
+        'Este usuario ya tiene una contraseña. Usa la función de actualizar perfil.',
+      );
+    }
+
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+    return this.usersRepository.save(user);
+  }
 }
