@@ -213,8 +213,14 @@ export class AuthService {
       expiresAt,
     );
 
+    console.log('🔐 Token guardado en BD, procediendo a enviar email...');
+    console.log('📧 Email destino:', email);
+    console.log('🎫 Token generado (primeros 10 chars):', resetToken.substring(0, 10) + '...');
+
     // Envia email con el token sin hashear
     await this.mailService.sendPasswordResetEmail(email, resetToken);
+
+    console.log('✅ Proceso de forgot-password completado');
 
     return {
       message: 'Si el correo existe, recibirás un enlace de recuperación.',
