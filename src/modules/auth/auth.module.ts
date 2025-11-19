@@ -8,6 +8,7 @@ import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { User } from '../users/user.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailService } from '../../common/services/mail.service';
+import { ResendMailService } from '../../common/services/resend-mail.service';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { MailService } from '../../common/services/mail.service';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, MailService],
+  providers: [AuthService, JwtStrategy, MailService, ResendMailService],
   controllers: [AuthController],
   exports: [AuthService],
 })

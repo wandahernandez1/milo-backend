@@ -329,25 +329,22 @@ export class MailService {
             refreshToken: this.configService.get<string>('GMAIL_REFRESH_TOKEN'),
             accessToken: accessToken,
           },
-          // Opciones adicionales para mejorar la entrega a dominios externos
-          pool: true, // Usar pool de conexiones reutilizables
+
+          pool: true,
           maxConnections: 5,
-          maxMessages: 100, // Aumentado para mejor throughput
-          rateDelta: 20000, // 20 segundos de ventana
-          rateLimit: 14, // Límite de Gmail: ~14 mensajes por segundo
-          // Timeouts más largos para producción (evitar ETIMEDOUT)
-          socketTimeout: this.isProduction ? 60000 : 45000, // 60s en prod, 45s en dev
-          greetingTimeout: this.isProduction ? 40000 : 30000, // 40s en prod, 30s en dev
-          connectionTimeout: this.isProduction ? 60000 : 45000, // 60s en prod, 45s en dev
-          // Opciones de TLS mejoradas
+          maxMessages: 100,
+          rateDelta: 20000,
+          rateLimit: 14,
+
+          socketTimeout: this.isProduction ? 60000 : 45000,
+          greetingTimeout: this.isProduction ? 40000 : 30000,
+          connectionTimeout: this.isProduction ? 60000 : 45000,
           tls: {
             rejectUnauthorized: true,
-            minVersion: 'TLSv1.2', // Asegurar TLS 1.2 o superior
-            ciphers: 'HIGH:!aNULL:!MD5', // Cifrados seguros
+            minVersion: 'TLSv1.2',
+            ciphers: 'HIGH:!aNULL:!MD5',
           },
-          // Opciones de DNS timeout
           dnsTimeout: 30000,
-          // Log de debug solo en desarrollo
           debug: this.enableDebugLogs,
           logger: this.enableDebugLogs,
         } as any);
@@ -373,7 +370,6 @@ export class MailService {
             'List-Unsubscribe': '<mailto:unsubscribe@miloassistant.com>',
             Precedence: 'bulk',
           },
-          // Agregar versión de texto plano para mejor compatibilidad
           text: `
 Restablecer Contraseña - MiloAssistant
 
@@ -566,7 +562,6 @@ Este es un correo automático, por favor no responda a este mensaje.
           }
         }
 
-        // Si llegamos aquí, el envío fue exitoso
         this.logger.log(
           `Email de recuperación enviado exitosamente en intento ${attempt}`,
         );
@@ -593,7 +588,6 @@ Este es un correo automático, por favor no responda a este mensaje.
           );
         }
 
-        // Si es error de autenticación, no reintentar
         if (
           error.code === 'EAUTH' ||
           error.message?.includes('Invalid credentials')
@@ -609,7 +603,6 @@ Este es un correo automático, por favor no responda a este mensaje.
           throw new Error('Error de autenticación con Gmail API');
         }
 
-        // Si es error de timeout de conexión en producción, sugerir verificar firewall
         if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
           this.logger.error(
             `ERROR DE TIMEOUT: No se pudo conectar al servidor SMTP (${error.command})`,
@@ -622,17 +615,13 @@ Este es un correo automático, por favor no responda a este mensaje.
               `Puerto actual: ${smtpPort}. Verifica que el puerto esté abierto para conexiones salientes`,
             );
           }
-          // Continuar con reintentos para timeouts
         }
 
-        // Si no es el último intento, esperar antes de reintentar
         if (attempt < maxRetries) {
-          // Backoff exponencial ajustado según el tipo de dominio y tipo de error
           let baseWaitTime = domainInfo.requiresSlowDelivery ? 3000 : 2000;
 
-          // Si es timeout, esperar más tiempo antes de reintentar
           if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
-            baseWaitTime = baseWaitTime * 2; // Duplicar tiempo de espera para timeouts
+            baseWaitTime = baseWaitTime * 2;
           }
 
           const waitTime = attempt * baseWaitTime;
@@ -646,7 +635,6 @@ Este es un correo automático, por favor no responda a este mensaje.
       }
     }
 
-    // Si llegamos aquí, todos los intentos fallaron
     this.logger.error('Todos los intentos de envío fallaron');
     this.logger.error(`Último error: ${lastError?.message}`, lastError?.stack);
     throw new Error(

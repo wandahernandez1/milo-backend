@@ -20,7 +20,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "gmail:auth": "node scripts/generate-gmail-token.js",
-    "test:email": "node scripts/test-email.js"
+    "test:email": "node scripts/test-email.js",
+    "test:resend": "node scripts/test-resend-email.js"
   },
   "dependencies": {
     "@google/genai": "^1.21.0",
@@ -47,6 +48,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.5.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {

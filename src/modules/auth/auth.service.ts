@@ -10,6 +10,7 @@ import { User } from '../users/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
 import { MailService } from '../../common/services/mail.service';
+import { ResendMailService } from '../../common/services/resend-mail.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly resendMailService: ResendMailService,
   ) {
     this.googleClient = new OAuth2Client(
       this.configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -200,9 +202,9 @@ export class AuthService {
           '⚠️ [forgotPassword] Usuario sin contraseña (registro con Google):',
           email,
         );
-        return {
-          message: 'Si el correo existe, recibirás un enlace de recuperación.',
-        };
+        throw new BadRequestException(
+          'Esta cuenta fue creada con Google. Por favor, inicia sesión con Google para acceder a tu cuenta.',
+        );
       }
 
       // Generar token de recuperacion
@@ -229,19 +231,78 @@ export class AuthService {
         resetToken.substring(0, 10) + '...',
       );
 
-      // Envia email con el token sin hashear
-      console.log('📨 [forgotPassword] Llamando a sendPasswordResetEmail...');
-      await this.mailService.sendPasswordResetEmail(email, resetToken);
+      // Sistema dual de emails: Intenta Gmail primero, luego Resend como respaldo
+      let emailSent = false;
+      let emailError = null;
+
+      // Intento 1: Gmail API (para usuarios de Gmail)
+      try {
+        console.log('📨 [forgotPassword] Intentando enviar con Gmail API...');
+        await this.mailService.sendPasswordResetEmail(email, resetToken);
+        emailSent = true;
+        console.log('✅ Email enviado exitosamente con Gmail API');
+      } catch (gmailError) {
+        emailError = gmailError;
+        console.warn(
+          '⚠️ [forgotPassword] Gmail API falló, intentando con Resend...',
+        );
+        console.warn('Error de Gmail:', gmailError.message);
+
+        // Intento 2: Resend API (respaldo para todos los usuarios)
+        try {
+          console.log('📨 [forgotPassword] Intentando enviar con Resend...');
+          await this.resendMailService.sendPasswordResetEmail(
+            email,
+            resetToken,
+          );
+          emailSent = true;
+          console.log('✅ Email enviado exitosamente con Resend');
+        } catch (resendError) {
+          console.error(
+            '❌ [forgotPassword] Resend también falló:',
+            resendError.message,
+          );
+          emailError = resendError;
+        }
+      }
+
+      // Si ninguno de los dos servicios funcionó
+      if (!emailSent) {
+        console.error(
+          '❌ [forgotPassword] Todos los servicios de email fallaron',
+        );
+
+        // Limpiar el token de la BD ya que no se pudo enviar el email
+        await this.usersService.saveResetPasswordToken(
+          user.id,
+          null as any,
+          null as any,
+        );
+
+        throw new BadRequestException(
+          'El servicio de recuperación de contraseña no está disponible temporalmente. ' +
+            'Por favor, intenta nuevamente más tarde o contacta con soporte.',
+        );
+      }
 
       console.log('✅ Proceso de forgot-password completado');
 
       return {
-        message: 'Si el correo existe, recibirás un enlace de recuperación.',
+        message:
+          'Hemos enviado un enlace de recuperación a tu correo electrónico. Por favor, revisa tu bandeja de entrada y spam.',
       };
     } catch (error) {
-      console.error('❌ [forgotPassword] Error en proceso:', error);
+      // Si ya es un BadRequestException, lo dejamos pasar
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      console.error('❌ [forgotPassword] Error inesperado:', error);
       console.error('❌ [forgotPassword] Stack:', error.stack);
-      throw error; // Re-lanzar para que lo capture el filtro global
+
+      throw new BadRequestException(
+        'Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.',
+      );
     }
   }
 
