@@ -7,26 +7,58 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private configService: ConfigService) {
-    // Configurar transporter de nodemailer para Gmail
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: this.configService.get<string>('MAIL_USER'),
         pass: this.configService.get<string>('MAIL_PASSWORD'),
       },
+      // Configuraciones para producción
+      tls: {
+        rejectUnauthorized: true,
+        minVersion: 'TLSv1.2',
+      },
+      pool: true, // pooling de conexiones para mejor rendimiento
+      maxConnections: 5,
+      maxMessages: 100,
     });
 
-    // Log de configuración al iniciar (útil para debug)
+    // Log de configuración al iniciar
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const mailUser = this.configService.get<string>('MAIL_USER');
+    const mailPassword = this.configService.get<string>('MAIL_PASSWORD');
+
     console.log('📧 MailService inicializado');
     console.log(
       '🌍 FRONTEND_URL:',
       frontendUrl || 'NO CONFIGURADA (usando localhost por defecto)',
     );
+    console.log('📨 MAIL_USER:', mailUser || 'NO CONFIGURADO');
     console.log(
-      '📨 MAIL_USER:',
-      this.configService.get<string>('MAIL_USER') || 'NO CONFIGURADO',
+      '🔑 MAIL_PASSWORD:',
+      mailPassword
+        ? `Configurado (${mailPassword.length} caracteres)`
+        : 'NO CONFIGURADO',
     );
+
+    this.verifyConnection();
+  }
+
+  private async verifyConnection() {
+    try {
+      await this.transporter.verify();
+      console.log('✅ Conexión SMTP verificada correctamente');
+    } catch (error) {
+      console.error('❌ Error al verificar conexión SMTP:', error.message);
+      console.error(
+        '⚠️ IMPORTANTE: Si estás usando Gmail, asegúrate de usar una Contraseña de Aplicación, no tu contraseña normal.',
+      );
+      console.error(
+        '📝 Guía: https://support.google.com/accounts/answer/185833',
+      );
+    }
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string) {
@@ -186,9 +218,11 @@ export class MailService {
     };
 
     try {
-      await this.transporter.sendMail(mailOptions);
+      const info = await this.transporter.sendMail(mailOptions);
       console.log('✅ Email enviado exitosamente a:', email);
-      return { success: true };
+      console.log('📬 Message ID:', info.messageId);
+      console.log('📊 Response:', info.response);
+      return { success: true, messageId: info.messageId };
     } catch (error) {
       console.error('❌ Error enviando correo:', error);
       console.error('❌ Detalles del error:', {
@@ -196,7 +230,52 @@ export class MailService {
         command: error.command,
         response: error.response,
         responseCode: error.responseCode,
+        message: error.message,
       });
+
+      // Errores específicos de autenticación
+      if (
+        error.code === 'EAUTH' ||
+        error.responseCode === 535 ||
+        error.message?.includes('Invalid login')
+      ) {
+        console.error(
+          '🔐 ERROR DE AUTENTICACIÓN: Las credenciales de Gmail son inválidas',
+        );
+        console.error(
+          '⚠️ SOLUCIÓN: Asegúrate de usar una Contraseña de Aplicación de Google, NO tu contraseña normal',
+        );
+        console.error(
+          '📝 Cómo obtenerla: https://support.google.com/accounts/answer/185833',
+        );
+        console.error('Pasos:');
+        console.error(
+          '1. Ve a tu cuenta de Google → Seguridad → Verificación en 2 pasos (debe estar activada)',
+        );
+        console.error('2. Busca "Contraseñas de aplicaciones"');
+        console.error(
+          '3. Genera una contraseña para "Correo" o "Otra aplicación"',
+        );
+        console.error(
+          '4. Copia la contraseña de 16 caracteres (sin espacios) y úsala en MAIL_PASSWORD',
+        );
+        throw new Error(
+          'Error de autenticación SMTP: Verifica las credenciales de Gmail',
+        );
+      }
+
+      // Errores de conexión
+      if (
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ENOTFOUND'
+      ) {
+        console.error(
+          '🌐 ERROR DE CONEXIÓN: No se pudo conectar al servidor SMTP',
+        );
+        throw new Error('No se pudo conectar al servidor de correo');
+      }
+
       throw new Error('No se pudo enviar el correo de recuperación');
     }
   }
