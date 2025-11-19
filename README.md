@@ -1,30 +1,45 @@
 # 🤖 Milo Assistant - Backend
 
-API REST desarrollada con NestJS para Milo, tu asistente personal inteligente.
+<div align="center">
+  <p><strong>API REST desarrollada con NestJS para Milo, tu asistente personal inteligente</strong></p>
+  <p>
+    <a href="#-descripción">Descripción</a> •
+    <a href="#-instalación">Instalación</a> •
+    <a href="#️-configuración">Configuración</a> •
+    <a href="#-ejecutar-el-proyecto">Uso</a> •
+    <a href="#️-tecnologías">Tecnologías</a>
+  </p>
+</div>
+
+---
 
 ## 📋 Tabla de Contenidos
 
-- [Descripción](#descripción)
-- [Requisitos Previos](#requisitos-previos)
-- [Instalación](#instalación)
-- [Configuración](#configuración)
-- [Ejecutar el Proyecto](#ejecutar-el-proyecto)
-- [Base de Datos](#base-de-datos)
-- [Testing](#testing)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [API Endpoints](#api-endpoints)
-- [Tecnologías](#tecnologías)
+- [📖 Descripción](#-descripción)
+- [🔧 Requisitos Previos](#-requisitos-previos)
+- [🚀 Instalación](#-instalación)
+- [⚙️ Configuración](#️-configuración)
+- [🏃 Ejecutar el Proyecto](#-ejecutar-el-proyecto)
+- [🗄️ Base de Datos](#️-base-de-datos)
+- [🧪 Testing](#-testing)
+- [📁 Estructura del Proyecto](#-estructura-del-proyecto)
+- [🔌 API Endpoints](#-api-endpoints)
+- [🛠️ Tecnologías](#️-tecnologías)
+- [📝 Notas Importantes](#-notas-importantes)
+- [🐛 Solución de Problemas](#-solución-de-problemas)
 
 ## 📖 Descripción
 
-Backend de MiloAssistant, un asistente virtual inteligente que integra:
+Backend de **MiloAssistant**, un asistente virtual inteligente que combina IA conversacional con productividad personal.
 
-- 🔐 Autenticación con JWT y Google OAuth
-- 🤖 IA conversacional con Gemini API
-- ✅ Gestión de tareas y notas
-- 📅 Integración con Google Calendar
-- 🌤️ Consulta de clima con OpenWeatherMap
-- 📰 Noticias actualizadas con NewsAPI
+### ✨ Características Principales
+
+- 🔐 **Autenticación Segura** - JWT y Google OAuth 2.0
+- 🤖 **IA Conversacional** - Integración con Gemini API de Google
+- ✅ **Gestión de Tareas** - CRUD completo con recordatorios y prioridades
+- 📝 **Sistema de Notas** - Organización y búsqueda de notas personales
+- 📅 **Google Calendar** - Sincronización bidireccional de eventos
+- 🧠 **Procesamiento de Lenguaje Natural** - Análisis de fechas y contexto con Chrono-node
 
 ## 🔧 Requisitos Previos
 
@@ -56,27 +71,37 @@ npm install
 Crea un archivo `.env` en la raíz del proyecto con las siguientes variables:
 
 ```env
-# === BASE DE DATOS ===
+# ============================================
+# CONFIGURACIÓN DE BASE DE DATOS
+# ============================================
 DATABASE_HOST=localhost
 DATABASE_PORT=3306
 DATABASE_USERNAME=root
-DATABASE_PASSWORD=tu_password
+DATABASE_PASSWORD=tu_password_mysql
 DATABASE_NAME=basededatosmilo
 
-# === SERVIDOR ===
+# ============================================
+# CONFIGURACIÓN DEL SERVIDOR
+# ============================================
 PORT=3000
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
 
-# === JWT ===
-JWT_SECRET=tu_secreto_jwt_super_seguro_aqui
+# ============================================
+# AUTENTICACIÓN JWT
+# ============================================
+JWT_SECRET=tu_secreto_jwt_super_seguro_minimo_32_caracteres
 
-# === GOOGLE OAUTH ===
-GOOGLE_CLIENT_ID=tu_google_client_id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=tu_google_client_secret
+# ============================================
+# GOOGLE OAUTH & CALENDAR
+# ============================================
+GOOGLE_CLIENT_ID=tu_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=tu_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/callback
 
-# === GEMINI API ===
+# ============================================
+# GEMINI AI (Google)
+# ============================================
 GEMINI_API_KEY=tu_gemini_api_key
 ```
 
@@ -271,22 +296,63 @@ milo-backend/
 
 ## 🛠️ Tecnologías
 
-- **[NestJS](https://nestjs.com/)** - Framework Node.js
-- **[TypeScript](https://www.typescriptlang.org/)** - Lenguaje tipado
-- **[TypeORM](https://typeorm.io/)** - ORM para base de datos
-- **[MySQL](https://www.mysql.com/)** - Base de datos
-- **[JWT](https://jwt.io/)** - Autenticación con tokens
-- **[Passport](http://www.passportjs.org/)** - Estrategias de autenticación
-- **[Google APIs](https://developers.google.com/)** - OAuth y Calendar
-- **[Gemini API](https://ai.google.dev/)** - IA conversacional
-- **[Jest](https://jestjs.io/)** - Testing framework
+### Framework & Lenguaje
+
+- **[NestJS](https://nestjs.com/)** v11 - Framework progresivo de Node.js
+- **[TypeScript](https://www.typescriptlang.org/)** v5.7 - Superset tipado de JavaScript
+
+### Base de Datos & ORM
+
+- **[MySQL](https://www.mysql.com/)** v8+ - Sistema de gestión de base de datos relacional
+- **[TypeORM](https://typeorm.io/)** v0.3 - ORM para TypeScript y JavaScript
+
+### Autenticación & Seguridad
+
+- **[Passport](http://www.passportjs.org/)** v0.7 - Middleware de autenticación
+- **[JWT](https://jwt.io/)** - JSON Web Tokens para autenticación stateless
+- **[bcrypt](https://www.npmjs.com/package/bcrypt)** v6 - Hashing de contraseñas
+
+### APIs & Servicios Externos
+
+- **[Google OAuth](https://developers.google.com/identity/protocols/oauth2)** - Autenticación con Google
+- **[Google Calendar API](https://developers.google.com/calendar)** - Integración de calendario
+- **[Gemini API](https://ai.google.dev/)** v1.21 - IA conversacional de Google
+
+### Utilidades
+
+- **[date-fns](https://date-fns.org/)** v4.1 - Manipulación de fechas moderna
+- **[chrono-node](https://github.com/wanasit/chrono)** v2.9 - Parser de lenguaje natural para fechas
+- **[class-validator](https://github.com/typestack/class-validator)** - Validación basada en decoradores
+- **[class-transformer](https://github.com/typestack/class-transformer)** - Transformación de objetos
+
+### Testing
+
+- **[Jest](https://jestjs.io/)** v30 - Framework de testing
+- **[Supertest](https://github.com/visionmedia/supertest)** v7 - Testing de HTTP
 
 ## 📝 Notas Importantes
 
-1. **Seguridad**: Nunca subas el archivo `.env` a un repositorio público
-2. **Base de Datos**: Asegúrate de que MySQL esté corriendo antes de iniciar el servidor
-3. **CORS**: El frontend debe estar en `http://localhost:5173` o actualizar la variable `FRONTEND_URL`
-4. **Google OAuth**: Los URIs de redirección deben coincidir exactamente con los configurados en Google Cloud Console
+### Seguridad
+
+- ⚠️ **Nunca** subas el archivo `.env` a un repositorio público
+- 🔑 Usa contraseñas seguras para `JWT_SECRET` (mínimo 32 caracteres)
+- 🔒 En producción, utiliza variables de entorno del servidor, no archivos `.env`
+
+### Base de Datos
+
+- 🗄️ Asegúrate de que MySQL esté corriendo antes de iniciar el servidor
+- 🔄 El modo `synchronize: true` solo debe usarse en desarrollo
+- 💾 Crea backups regulares de la base de datos en producción
+
+### CORS
+
+- 🌐 El frontend debe estar en `http://localhost:5173` o actualizar `FRONTEND_URL`
+- 🔗 En producción, configura los dominios permitidos correctamente
+
+### Google OAuth
+
+- ✅ Los URIs de redirección deben coincidir **exactamente** con los configurados en Google Cloud Console
+- 🔄 Habilita Google Calendar API en Google Cloud Console para la funcionalidad de eventos
 
 ## 🐛 Solución de Problemas
 
@@ -321,8 +387,10 @@ Este proyecto es privado y de uso interno.
 
 ## 👥 Autor
 
-Desarrollado por el equipo de MiloAssistant
+Desarrollado con ❤️ por Hernandez Wanda
 
----
-
-**¿Necesitas ayuda?** Abre un issue en el repositorio o contacta al equipo de desarrollo.
+<div align="center">
+  <p><strong>¿Necesitas ayuda?</strong></p>
+  <p>Abre un issue en el repositorio o contacta al equipo de desarrollo</p>
+  <p>Hecho con NestJS 🐈 • TypeScript 💙 • MySQL 🐬</p>
+</div>

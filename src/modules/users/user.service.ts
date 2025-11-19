@@ -24,26 +24,26 @@ export class UsersService {
     private readonly usersRepository: Repository<User>,
   ) {}
 
-  // Marcar usuario como conectado a Google
+  // Marca usuario como conectado a Google
   async markUserAsConnected(userId: string): Promise<User> {
     const user = await this.findOneById(userId);
     user.googleConnected = true;
     return this.usersRepository.save(user);
   }
 
-  // Buscar por email
+  // Busca por email
   async findOneByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email } });
   }
 
-  //  Buscar por ID
+  //  Busca por ID
   async findOneById(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     return user;
   }
 
-  //  Crear usuario (con soporte para login Google sin contraseña)
+  //  Crea usuario (con soporte para login Google sin contraseña)
   async create(userDto: UserCreateInput): Promise<User> {
     if (!userDto.email) {
       throw new ConflictException('El email es obligatorio.');
@@ -73,7 +73,7 @@ export class UsersService {
     return this.usersRepository.save(newUser);
   }
 
-  //  Actualizar tokens de Google Calendar
+  //  Actualiza tokens de Google Calendar
   async updateGoogleCalendarTokens(userId: string, tokens: any): Promise<User> {
     const user = await this.findOneById(userId);
 
@@ -90,7 +90,7 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  // Desconectar Google Calendar
+  // Desconecta Google Calendar
   async disconnectGoogleCalendar(userId: string): Promise<User> {
     const user = await this.findOneById(userId);
 
@@ -102,7 +102,7 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  // Actualizar perfil
+  // Actualiza perfil
   async updateProfile(
     userId: string,
     updateUserDto: UpdateUserDto,
@@ -118,14 +118,14 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  //  Actualizar avatar personalizado
+  //  Actualiza avatar personalizado
   async updateAvatar(userId: string, avatarUrl: string | null): Promise<User> {
     const user = await this.findOneById(userId);
     user.avatar = avatarUrl;
     return this.usersRepository.save(user);
   }
 
-  // Actualizar avatar de Google
+  // Actualiza avatar de Google
   async updateGoogleAvatar(
     userId: string,
     googleAvatarUrl: string | null,
@@ -135,10 +135,43 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  //  Eliminar usuario
+  //  Elimina usuario
   async deleteProfile(userId: string): Promise<void> {
     const user = await this.usersRepository.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
     await this.usersRepository.delete(userId);
+  }
+
+  // Guarda token de recuperacion de contraseña
+  async saveResetPasswordToken(
+    userId: string,
+    token: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.usersRepository.update(userId, {
+      resetPasswordToken: token,
+      resetPasswordExpires: expiresAt,
+    });
+  }
+
+  // Busca usuario por token valido
+  async findByValidResetToken(token: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.resetPasswordToken = :token', { token })
+      .andWhere('user.resetPasswordExpires > :now', { now: new Date() })
+      .getOne();
+  }
+
+  // Actualizar contraseña y limpia token
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const salt = await bcrypt.genSalt();
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await this.usersRepository.update(userId, {
+      password: hashedPassword,
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+    });
   }
 }

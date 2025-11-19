@@ -12,17 +12,19 @@ import { CreateUserDto } from '../users/dto/create-user.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { IsString } from 'class-validator';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
-// ✅ DTO para refrescar token
+//  DTO para refrescar token
 class RefreshDto {
   @IsString()
   refresh_token: string;
 }
 
-// ✅ DTO para login con Google
+//  DTO para login con Google
 class GoogleTokenDto {
   @IsString()
-  token: string; // 👈 mismo nombre que usa el AuthService
+  token: string;
 }
 
 @Controller('auth')
@@ -51,7 +53,7 @@ export class AuthController {
     }
   }
 
-  // ✅ Login con Google
+  //  Login con Google
   @Post('google/login')
   async googleLogin(@Body() googleTokenDto: GoogleTokenDto) {
     return this.authService.loginWithGoogle(googleTokenDto.token);
@@ -68,7 +70,7 @@ export class AuthController {
   @Get('me')
   getProfile(@Request() req) {
     const { password, ...user } = req.user;
-    // 🔑 Aplicar lógica de prioridad de avatar
+    // Aplicar lógica de prioridad de avatar
     const avatarToReturn = user.avatar || user.googleAvatar || null;
     return { ...user, avatar: avatarToReturn };
   }
@@ -77,5 +79,20 @@ export class AuthController {
   @Post('logout')
   async logout() {
     return this.authService.logout();
+  }
+
+  // Solicita recuperacion de contraseña
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
+  }
+
+  // Restablecer contraseña con token
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
   }
 }
