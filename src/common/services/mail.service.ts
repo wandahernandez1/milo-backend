@@ -14,11 +14,34 @@ export class MailService {
         pass: this.configService.get<string>('MAIL_PASSWORD'),
       },
     });
+
+    // Log de configuración al iniciar (útil para debug)
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    console.log('📧 MailService inicializado');
+    console.log(
+      '🌍 FRONTEND_URL:',
+      frontendUrl || 'NO CONFIGURADA (usando localhost por defecto)',
+    );
+    console.log(
+      '📨 MAIL_USER:',
+      this.configService.get<string>('MAIL_USER') || 'NO CONFIGURADO',
+    );
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string) {
     // URL del frontend donde el usuario ingresará la nueva contraseña
-    const resetUrl = `${this.configService.get('FRONTEND_URL') || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const baseUrl =
+      frontendUrl && frontendUrl.trim() !== ''
+        ? frontendUrl
+        : 'http://localhost:5173';
+    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+
+    // Log para debug (solo en desarrollo)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔗 URL de reset generada:', resetUrl);
+      console.log('🌍 FRONTEND_URL configurada:', frontendUrl);
+    }
 
     const mailOptions = {
       from: `"MiloAssistant Security" <${this.configService.get<string>('MAIL_USER')}>`,

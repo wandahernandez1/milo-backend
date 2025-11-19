@@ -16,7 +16,10 @@ import { Task } from './modules/tasks/task.entity';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: process.env.NODE_ENV === 'production' ? undefined : '.env',
+    }),
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: process.env.DATABASE_HOST || 'localhost',
