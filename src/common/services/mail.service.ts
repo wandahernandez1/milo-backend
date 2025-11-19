@@ -1,15 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { google } from 'googleapis';
 
 @Injectable()
 export class MailService {
+  private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter;
   private oauth2Client;
   private isInitialized = false;
+  private readonly isProduction: boolean;
+  private readonly enableDebugLogs: boolean;
 
   constructor(private configService: ConfigService) {
+    this.isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+    this.enableDebugLogs =
+      this.configService.get<string>('MAIL_DEBUG') === 'true' ||
+      !this.isProduction;
+
     // Configurar OAuth2 Client de Google
     this.oauth2Client = new google.auth.OAuth2(
       this.configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -27,16 +36,15 @@ export class MailService {
 
     // Inicializar el transporter de forma asíncrona
     this.initializeTransporter().catch((error) => {
-      console.error(
-        '❌ Error crítico inicializando MailService:',
-        error.message,
-      );
+      this.logger.error('Error crítico inicializando MailService', error.stack);
     });
   }
 
   private async initializeTransporter() {
     try {
-      console.log('📧 Inicializando MailService con Gmail API (OAuth2)...');
+      if (this.enableDebugLogs) {
+        this.logger.log('Inicializando MailService con Gmail API (OAuth2)...');
+      }
 
       // Verificar variables de entorno críticas
       const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
@@ -48,24 +56,19 @@ export class MailService {
       );
       const mailUser = this.configService.get<string>('MAIL_USER');
 
-      console.log('🔍 Verificando configuración OAuth2:');
-      console.log(
-        '  ✓ GOOGLE_CLIENT_ID:',
-        clientId
-          ? `Configurado (${clientId.substring(0, 20)}...)`
-          : '❌ NO CONFIGURADO',
-      );
-      console.log(
-        '  ✓ GOOGLE_CLIENT_SECRET:',
-        clientSecret ? 'Configurado' : '❌ NO CONFIGURADO',
-      );
-      console.log(
-        '  ✓ GMAIL_REFRESH_TOKEN:',
-        refreshToken
-          ? `Configurado (${refreshToken.length} chars)`
-          : '❌ NO CONFIGURADO',
-      );
-      console.log('  ✓ MAIL_USER:', mailUser || '❌ NO CONFIGURADO');
+      if (this.enableDebugLogs) {
+        this.logger.log('Verificando configuración OAuth2');
+        this.logger.log(
+          `GOOGLE_CLIENT_ID: ${clientId ? 'Configurado' : 'NO CONFIGURADO'}`,
+        );
+        this.logger.log(
+          `GOOGLE_CLIENT_SECRET: ${clientSecret ? 'Configurado' : 'NO CONFIGURADO'}`,
+        );
+        this.logger.log(
+          `GMAIL_REFRESH_TOKEN: ${refreshToken ? 'Configurado' : 'NO CONFIGURADO'}`,
+        );
+        this.logger.log(`MAIL_USER: ${mailUser || 'NO CONFIGURADO'}`);
+      }
 
       if (!clientId || !clientSecret || !refreshToken || !mailUser) {
         throw new Error(
@@ -74,9 +77,13 @@ export class MailService {
       }
 
       // Obtener access token usando el refresh token
-      console.log('🔑 Obteniendo access token...');
+      if (this.enableDebugLogs) {
+        this.logger.log('Obteniendo access token...');
+      }
       const accessToken = await this.getAccessToken();
-      console.log('✓ Access token obtenido');
+      if (this.enableDebugLogs) {
+        this.logger.log('Access token obtenido');
+      }
 
       // Configurar transporter con OAuth2
       this.transporter = nodemailer.createTransport({
@@ -93,23 +100,25 @@ export class MailService {
 
       // Log de configuración al iniciar
       const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-      console.log('📧 MailService inicializado con Gmail API (OAuth2)');
-      console.log(
-        '🌍 FRONTEND_URL:',
-        frontendUrl || 'NO CONFIGURADA (usando localhost por defecto)',
-      );
+      if (this.enableDebugLogs) {
+        this.logger.log('MailService inicializado con Gmail API (OAuth2)');
+        this.logger.log(
+          `FRONTEND_URL: ${frontendUrl || 'NO CONFIGURADA (usando localhost por defecto)'}`,
+        );
+      }
 
       await this.verifyConnection();
       this.isInitialized = true;
-      console.log('✅ MailService completamente inicializado y listo');
+      this.logger.log('MailService completamente inicializado y listo');
     } catch (error) {
-      console.error('❌ Error inicializando Gmail API:', error.message);
-      console.error('❌ Stack completo:', error.stack);
-      console.error('⚠️ Verifica que hayas configurado correctamente:');
-      console.error('   - GOOGLE_CLIENT_ID');
-      console.error('   - GOOGLE_CLIENT_SECRET');
-      console.error('   - GMAIL_REFRESH_TOKEN');
-      console.error('   - MAIL_USER');
+      this.logger.error('Error inicializando Gmail API', error.stack);
+      if (!this.isProduction) {
+        this.logger.error('Verifica que hayas configurado correctamente:');
+        this.logger.error('- GOOGLE_CLIENT_ID');
+        this.logger.error('- GOOGLE_CLIENT_SECRET');
+        this.logger.error('- GMAIL_REFRESH_TOKEN');
+        this.logger.error('- MAIL_USER');
+      }
       this.isInitialized = false;
       throw error; // Propagar error para que sea visible
     }
@@ -120,59 +129,105 @@ export class MailService {
       const { token } = await this.oauth2Client.getAccessToken();
       return token;
     } catch (error) {
-      console.error(
-        '❌ Error obteniendo access token de Gmail:',
-        error.message,
-      );
+      this.logger.error('Error obteniendo access token de Gmail', error.stack);
       throw new Error('No se pudo obtener el access token de Gmail');
     }
   }
 
   private async verifyConnection() {
     try {
-      console.log('🔍 Verificando conexión con Gmail API...');
+      if (this.enableDebugLogs) {
+        this.logger.log('Verificando conexión con Gmail API...');
+      }
       await this.transporter.verify();
-      console.log('✅ Conexión con Gmail API verificada correctamente');
+      if (this.enableDebugLogs) {
+        this.logger.log('Conexión con Gmail API verificada correctamente');
+      }
     } catch (error) {
-      console.error(
-        '❌ Error al verificar conexión con Gmail API:',
+      this.logger.error(
+        'Error al verificar conexión con Gmail API',
         error.message,
       );
-      console.error('📊 Código de error:', error.code);
 
       if (error.code === 'EAUTH' || error.responseCode === 535) {
-        console.error(
-          '🔐 ERROR DE AUTENTICACIÓN: Credenciales OAuth2 inválidas',
+        this.logger.error(
+          'ERROR DE AUTENTICACIÓN: Credenciales OAuth2 inválidas',
         );
-        console.error('⚠️ SOLUCIÓN: Regenera el GMAIL_REFRESH_TOKEN');
-        console.error('📝 Ejecuta: npm run gmail:auth');
+        if (!this.isProduction) {
+          this.logger.error('SOLUCIÓN: Regenera el GMAIL_REFRESH_TOKEN');
+          this.logger.error('Ejecuta: npm run gmail:auth');
+        }
       } else {
-        console.error('⚠️ ERROR: Verifica tu configuración de Gmail API');
+        this.logger.error('ERROR: Verifica tu configuración de Gmail API');
       }
     }
   }
 
+  private getDomainRecommendations(emailDomain: string): {
+    isExternal: boolean;
+    requiresSlowDelivery: boolean;
+    tips: string[];
+  } {
+    const gmailDomains = ['gmail.com', 'googlemail.com'];
+    const isExternal = !gmailDomains.includes(emailDomain.toLowerCase());
+
+    const tips: string[] = [];
+
+    if (isExternal) {
+      tips.push('Dominio externo detectado');
+      tips.push(
+        'Se aplicarán configuraciones optimizadas para entrega externa',
+      );
+    }
+
+    // Dominios conocidos por ser más estrictos
+    const strictDomains = [
+      'hotmail.com',
+      'outlook.com',
+      'live.com',
+      'yahoo.com',
+      'yahoo.es',
+      'aol.com',
+    ];
+    const requiresSlowDelivery = strictDomains.some((domain) =>
+      emailDomain.toLowerCase().includes(domain),
+    );
+
+    if (requiresSlowDelivery) {
+      tips.push('Dominio con filtros anti-spam estrictos detectado');
+      tips.push(
+        'Se recomienda verificar configuración SPF/DKIM del dominio de envío',
+      );
+    }
+
+    return {
+      isExternal,
+      requiresSlowDelivery,
+      tips,
+    };
+  }
+
   async sendPasswordResetEmail(email: string, resetToken: string) {
-    console.log(
-      '📧 [sendPasswordResetEmail] Iniciando envío de email a:',
-      email,
-    );
-    console.log(
-      '🔍 [sendPasswordResetEmail] Estado de inicialización:',
-      this.isInitialized,
-    );
+    if (this.enableDebugLogs) {
+      this.logger.log(
+        `[sendPasswordResetEmail] Iniciando envío de email a: ${email}`,
+      );
+      this.logger.log(
+        `[sendPasswordResetEmail] Estado de inicialización: ${this.isInitialized}`,
+      );
+    }
 
     // Verificar que el servicio esté inicializado
     if (!this.isInitialized) {
-      console.error(
-        '❌ MailService no está inicializado. Intentando reinicializar...',
+      this.logger.warn(
+        'MailService no está inicializado. Intentando reinicializar...',
       );
       try {
         await this.initializeTransporter();
       } catch (error) {
-        console.error(
-          '❌ [sendPasswordResetEmail] Error reinicializando:',
-          error.message,
+        this.logger.error(
+          '[sendPasswordResetEmail] Error reinicializando',
+          error.stack,
         );
         throw new Error(
           'El servicio de correo no está disponible: ' + error.message,
@@ -192,32 +247,126 @@ export class MailService {
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
     // Log para debug
-    console.log('📧 Intentando enviar email de reset password con Gmail API');
-    console.log('📬 Destinatario:', email);
-    console.log('🔗 URL de reset generada:', resetUrl);
+    if (this.enableDebugLogs) {
+      this.logger.log(
+        'Intentando enviar email de reset password con Gmail API',
+      );
+      this.logger.log(`Destinatario: ${email}`);
+      this.logger.log(`URL de reset generada: ${resetUrl}`);
+    }
 
-    try {
-      // Obtener un nuevo access token antes de enviar
-      const accessToken = await this.getAccessToken();
+    // Detectar el dominio del email
+    const emailDomain = email.split('@')[1];
 
-      // Actualizar el transporter con el nuevo access token
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          type: 'OAuth2',
-          user: this.configService.get<string>('MAIL_USER'),
-          clientId: this.configService.get<string>('GOOGLE_CLIENT_ID'),
-          clientSecret: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
-          refreshToken: this.configService.get<string>('GMAIL_REFRESH_TOKEN'),
-          accessToken: accessToken,
-        },
-      } as any);
+    // Obtener recomendaciones específicas para el dominio
+    const domainInfo = this.getDomainRecommendations(emailDomain);
+    if (this.enableDebugLogs) {
+      this.logger.log(`Dominio del destinatario: ${emailDomain}`);
+      this.logger.log(`Es dominio externo: ${domainInfo.isExternal}`);
+      this.logger.log(
+        `Requiere entrega lenta: ${domainInfo.requiresSlowDelivery}`,
+      );
+      if (domainInfo.tips.length > 0) {
+        domainInfo.tips.forEach((tip) => this.logger.log(`${tip}`));
+      }
+    }
 
-      const mailOptions = {
-        from: `"MiloAssistant Security" <${this.configService.get<string>('MAIL_USER')}>`,
-        to: email,
-        subject: 'Restablecer Contraseña - MiloAssistant',
-        html: `
+    // Sistema de reintentos
+    const maxRetries = domainInfo.requiresSlowDelivery ? 5 : 3; // Más intentos para dominios estrictos
+    let lastError;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (this.enableDebugLogs) {
+          this.logger.log(`Intento ${attempt} de ${maxRetries}...`);
+        }
+
+        // Obtener un nuevo access token antes de enviar
+        const accessToken = await this.getAccessToken();
+
+        // Actualizar el transporter con el nuevo access token
+        // Configuración mejorada para dominios externos
+        this.transporter = nodemailer.createTransport({
+          host: 'smtp.gmail.com',
+          port: 465,
+          secure: true, // true para 465, false para otros puertos
+          auth: {
+            type: 'OAuth2',
+            user: this.configService.get<string>('MAIL_USER'),
+            clientId: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+            clientSecret: this.configService.get<string>(
+              'GOOGLE_CLIENT_SECRET',
+            ),
+            refreshToken: this.configService.get<string>('GMAIL_REFRESH_TOKEN'),
+            accessToken: accessToken,
+          },
+          // Opciones adicionales para mejorar la entrega a dominios externos
+          pool: true, // Usar pool de conexiones reutilizables
+          maxConnections: 5,
+          maxMessages: 100, // Aumentado para mejor throughput
+          rateDelta: 20000, // 20 segundos de ventana
+          rateLimit: 14, // Límite de Gmail: ~14 mensajes por segundo
+          // Opciones de socket para evitar timeouts con servidores lentos
+          // Ajustar timeouts según el ambiente
+          socketTimeout: this.isProduction ? 45000 : 60000,
+          greetingTimeout: 30000,
+          connectionTimeout: this.isProduction ? 45000 : 60000,
+          // Opciones de TLS mejoradas
+          tls: {
+            rejectUnauthorized: true,
+            minVersion: 'TLSv1.2', // Asegurar TLS 1.2 o superior
+            ciphers: 'HIGH:!aNULL:!MD5', // Cifrados seguros
+          },
+          // Opciones de DNS timeout
+          dnsTimeout: 30000,
+          // Log de debug solo en desarrollo
+          debug: this.enableDebugLogs,
+          logger: this.enableDebugLogs,
+        } as any);
+
+        const mailUser = this.configService.get<string>('MAIL_USER') || '';
+
+        const mailOptions = {
+          from: `"MiloAssistant Security" <${mailUser}>`,
+          to: email,
+          subject: 'Restablecer Contraseña - MiloAssistant',
+          // Headers adicionales para mejorar reputación y evitar spam
+          headers: {
+            'X-Priority': '1',
+            'X-MSMail-Priority': 'High',
+            Importance: 'high',
+            'X-Mailer': 'MiloAssistant Security System',
+            'Reply-To': mailUser,
+            'Return-Path': mailUser,
+            // Headers para mejorar deliverability
+            'Message-ID': `<${Date.now()}.${Math.random().toString(36).substring(7)}@miloassistant.com>`,
+            'X-Entity-Ref-ID': resetToken.substring(0, 20),
+            // Headers anti-spam
+            'List-Unsubscribe': '<mailto:unsubscribe@miloassistant.com>',
+            Precedence: 'bulk',
+          },
+          // Agregar versión de texto plano para mejor compatibilidad
+          text: `
+Restablecer Contraseña - MiloAssistant
+
+Estimado usuario,
+
+Hemos recibido una solicitud para restablecer la contraseña de su cuenta en MiloAssistant.
+
+Para continuar con el proceso, copie y pegue el siguiente enlace en su navegador:
+
+${resetUrl}
+
+Este enlace es válido por 1 hora a partir de la recepción de este correo.
+
+IMPORTANTE: Si usted no solicitó este restablecimiento de contraseña, ignore este mensaje. Su contraseña actual permanecerá sin cambios.
+
+---
+MiloAssistant - Tu asistente personal inteligente
+Este es un correo automático, por favor no responda a este mensaje.
+© 2025 MiloAssistant. Todos los derechos reservados.
+          `,
+          html: `
         <!DOCTYPE html>
         <html lang="es">
         <head>
@@ -340,34 +489,118 @@ export class MailService {
         </body>
         </html>
       `,
-      };
+        };
 
-      const info = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Email enviado exitosamente a:', email);
-      console.log('📬 Message ID:', info.messageId);
-      console.log('📊 Response:', info.response);
-      return { success: true, messageId: info.messageId };
-    } catch (error) {
-      console.error('❌ Error enviando correo con Gmail API:', error);
-      console.error('❌ Detalles del error:', {
-        code: error.code,
-        message: error.message,
-      });
+        if (this.enableDebugLogs) {
+          this.logger.log('Enviando correo...');
+        }
+        const info = await this.transporter.sendMail(mailOptions);
 
-      if (
-        error.code === 'EAUTH' ||
-        error.message?.includes('Invalid credentials')
-      ) {
-        console.error(
-          '🔐 ERROR DE AUTENTICACIÓN: Las credenciales OAuth2 son inválidas',
+        if (this.enableDebugLogs) {
+          this.logger.log(`Email enviado exitosamente a: ${email}`);
+          this.logger.log(`Message ID: ${info.messageId}`);
+          this.logger.log(`Response: ${info.response}`);
+          this.logger.log(
+            `Accepted recipients: ${JSON.stringify(info.accepted)}`,
+          );
+          this.logger.log(
+            `Rejected recipients: ${JSON.stringify(info.rejected)}`,
+          );
+          this.logger.log(
+            `Pending recipients: ${JSON.stringify(info.pending)}`,
+          );
+        }
+
+        // Verificar si el correo fue aceptado
+        if (info.rejected && info.rejected.length > 0) {
+          this.logger.error(
+            `Email rechazado por el servidor: ${JSON.stringify(info.rejected)}`,
+          );
+          throw new Error('El correo fue rechazado por el servidor de destino');
+        }
+
+        if (info.pending && info.pending.length > 0) {
+          if (this.enableDebugLogs) {
+            this.logger.warn(
+              `Email en estado pendiente: ${JSON.stringify(info.pending)}`,
+            );
+            this.logger.warn(
+              'Esto puede ocurrir con correos no-Gmail. El correo será procesado pero puede tardar.',
+            );
+            if (domainInfo.isExternal) {
+              this.logger.warn(
+                'Para dominios externos, el correo puede tardar varios minutos en llegar.',
+              );
+              this.logger.warn(
+                'Verifica que el dominio de envío tenga configurado SPF y DKIM correctamente.',
+              );
+            }
+          }
+        }
+
+        // Si llegamos aquí, el envío fue exitoso
+        this.logger.log(
+          `Email de recuperación enviado exitosamente en intento ${attempt}`,
         );
-        console.error(
-          '⚠️ SOLUCIÓN: Regenera el GMAIL_REFRESH_TOKEN ejecutando: npm run gmail:auth',
-        );
-        throw new Error('Error de autenticación con Gmail API');
+        if (domainInfo.isExternal && this.enableDebugLogs) {
+          this.logger.log(
+            'Correo enviado a dominio externo. Puede tardar algunos minutos en llegar.',
+          );
+        }
+        return { success: true, messageId: info.messageId, info };
+      } catch (error) {
+        lastError = error;
+        this.logger.error(`Error en intento ${attempt}: ${error.message}`);
+
+        if (this.enableDebugLogs) {
+          this.logger.error(
+            'Detalles del error:',
+            JSON.stringify({
+              code: error.code,
+              message: error.message,
+              command: error.command,
+              response: error.response,
+              responseCode: error.responseCode,
+            }),
+          );
+        }
+
+        // Si es error de autenticación, no reintentar
+        if (
+          error.code === 'EAUTH' ||
+          error.message?.includes('Invalid credentials')
+        ) {
+          this.logger.error(
+            'ERROR DE AUTENTICACIÓN: Las credenciales OAuth2 son inválidas',
+          );
+          if (!this.isProduction) {
+            this.logger.error(
+              'SOLUCIÓN: Regenera el GMAIL_REFRESH_TOKEN ejecutando: npm run gmail:auth',
+            );
+          }
+          throw new Error('Error de autenticación con Gmail API');
+        }
+
+        // Si no es el último intento, esperar antes de reintentar
+        if (attempt < maxRetries) {
+          // Backoff exponencial ajustado según el tipo de dominio
+          const baseWaitTime = domainInfo.requiresSlowDelivery ? 3000 : 2000;
+          const waitTime = attempt * baseWaitTime; // 2s/3s, 4s/6s, 6s/9s, etc.
+          if (this.enableDebugLogs) {
+            this.logger.log(
+              `Esperando ${waitTime}ms antes del siguiente intento...`,
+            );
+          }
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
       }
-
-      throw new Error('No se pudo enviar el correo de recuperación');
     }
+
+    // Si llegamos aquí, todos los intentos fallaron
+    this.logger.error('Todos los intentos de envío fallaron');
+    this.logger.error(`Último error: ${lastError?.message}`, lastError?.stack);
+    throw new Error(
+      'No se pudo enviar el correo de recuperación después de múltiples intentos',
+    );
   }
 }
