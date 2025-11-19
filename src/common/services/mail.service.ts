@@ -42,8 +42,18 @@ export class MailService {
     console.log('📬 Destinatario:', email);
     console.log('🔗 URL de reset generada:', resetUrl);
     console.log('🌍 FRONTEND_URL configurada:', frontendUrl);
-    console.log('🔐 MAIL_USER:', this.configService.get<string>('MAIL_USER') ? 'Configurado' : 'NO CONFIGURADO');
-    console.log('🔑 MAIL_PASSWORD:', this.configService.get<string>('MAIL_PASSWORD') ? 'Configurado' : 'NO CONFIGURADO');
+    console.log(
+      '🔐 MAIL_USER:',
+      this.configService.get<string>('MAIL_USER')
+        ? 'Configurado'
+        : 'NO CONFIGURADO',
+    );
+    console.log(
+      '🔑 MAIL_PASSWORD:',
+      this.configService.get<string>('MAIL_PASSWORD')
+        ? 'Configurado'
+        : 'NO CONFIGURADO',
+    );
 
     const mailOptions = {
       from: `"MiloAssistant Security" <${this.configService.get<string>('MAIL_USER')}>`,
