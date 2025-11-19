@@ -7,10 +7,11 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private configService: ConfigService) {
+    // puerto 587 con STARTTLS para mejor compatibilidad con Railway
     this.transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
+      port: 587, // Puerto 587 en lugar de 465
+      secure: false, // false para puerto 587 (usa STARTTLS)
       auth: {
         user: this.configService.get<string>('MAIL_USER'),
         pass: this.configService.get<string>('MAIL_PASSWORD'),
@@ -23,6 +24,9 @@ export class MailService {
       pool: true, // pooling de conexiones para mejor rendimiento
       maxConnections: 5,
       maxMessages: 100,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     });
 
     // Log de configuración al iniciar
@@ -48,16 +52,35 @@ export class MailService {
 
   private async verifyConnection() {
     try {
+      console.log('🔍 Verificando conexión SMTP...');
+      console.log('📡 Host: smtp.gmail.com:587 (STARTTLS)');
       await this.transporter.verify();
       console.log('✅ Conexión SMTP verificada correctamente');
     } catch (error) {
       console.error('❌ Error al verificar conexión SMTP:', error.message);
-      console.error(
-        '⚠️ IMPORTANTE: Si estás usando Gmail, asegúrate de usar una Contraseña de Aplicación, no tu contraseña normal.',
-      );
-      console.error(
-        '📝 Guía: https://support.google.com/accounts/answer/185833',
-      );
+      console.error('📊 Código de error:', error.code);
+
+      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION') {
+        console.error(
+          '⚠️ ERROR DE CONEXIÓN: Railway no puede conectarse a Gmail',
+        );
+        console.error('💡 POSIBLES SOLUCIONES:');
+        console.error('   1. Railway puede estar bloqueando el puerto SMTP');
+        console.error(
+          '   2. Considera usar un servicio de email alternativo como:',
+        );
+        console.error('      - Resend (https://resend.com)');
+        console.error('      - SendGrid (https://sendgrid.com)');
+        console.error('      - AWS SES');
+      } else if (error.code === 'EAUTH' || error.responseCode === 535) {
+        console.error('🔐 ERROR DE AUTENTICACIÓN: Credenciales inválidas');
+        console.error(
+          '⚠️ IMPORTANTE: Usa una Contraseña de Aplicación de Google',
+        );
+        console.error(
+          '📝 Guía: https://support.google.com/accounts/answer/185833',
+        );
+      }
     }
   }
 
