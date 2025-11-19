@@ -49,7 +49,7 @@ export class ResendMailService {
 
     try {
       const data = await this.resend.emails.send({
-        from: 'MiloAssistant ',
+        from: 'MiloAssistant <onboarding@resend.dev>',
         to: [email],
         subject: 'Restablecer Contraseña - MiloAssistant',
         html: `
