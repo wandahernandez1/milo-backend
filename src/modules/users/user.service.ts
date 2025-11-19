@@ -4,7 +4,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { User } from './user.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -156,11 +156,12 @@ export class UsersService {
 
   // Busca usuario por token valido
   async findByValidResetToken(token: string): Promise<User | null> {
-    return this.usersRepository
-      .createQueryBuilder('user')
-      .where('user.resetPasswordToken = :token', { token })
-      .andWhere('user.resetPasswordExpires > :now', { now: new Date() })
-      .getOne();
+    return this.usersRepository.findOne({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: MoreThan(new Date()),
+      },
+    });
   }
 
   // Actualizar contraseña y limpia token
