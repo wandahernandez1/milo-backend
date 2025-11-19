@@ -43,10 +43,15 @@ export class User {
   @Column({ type: 'boolean', default: false })
   googleConnected: boolean;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'reset_password_token',
+  })
   resetPasswordToken: string | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true, name: 'reset_password_expires' })
   resetPasswordExpires: Date | null;
 
   @OneToMany(() => Note, (note) => note.user)
