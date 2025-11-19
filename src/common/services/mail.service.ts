@@ -37,11 +37,13 @@ export class MailService {
         : 'http://localhost:5173';
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
-    // Log para debug (solo en desarrollo)
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('🔗 URL de reset generada:', resetUrl);
-      console.log('🌍 FRONTEND_URL configurada:', frontendUrl);
-    }
+    // Log para debug
+    console.log('📧 Intentando enviar email de reset password');
+    console.log('📬 Destinatario:', email);
+    console.log('🔗 URL de reset generada:', resetUrl);
+    console.log('🌍 FRONTEND_URL configurada:', frontendUrl);
+    console.log('🔐 MAIL_USER:', this.configService.get<string>('MAIL_USER') ? 'Configurado' : 'NO CONFIGURADO');
+    console.log('🔑 MAIL_PASSWORD:', this.configService.get<string>('MAIL_PASSWORD') ? 'Configurado' : 'NO CONFIGURADO');
 
     const mailOptions = {
       from: `"MiloAssistant Security" <${this.configService.get<string>('MAIL_USER')}>`,
@@ -174,9 +176,16 @@ export class MailService {
 
     try {
       await this.transporter.sendMail(mailOptions);
+      console.log('✅ Email enviado exitosamente a:', email);
       return { success: true };
     } catch (error) {
-      console.error('Error enviando correo:', error);
+      console.error('❌ Error enviando correo:', error);
+      console.error('❌ Detalles del error:', {
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        responseCode: error.responseCode,
+      });
       throw new Error('No se pudo enviar el correo de recuperación');
     }
   }
