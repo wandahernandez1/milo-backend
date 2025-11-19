@@ -1,90 +1,141 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 
 @Injectable()
 export class MailService {
   private transporter: nodemailer.Transporter;
+  private oauth2Client;
+  private isInitialized = false;
 
   constructor(private configService: ConfigService) {
-    // puerto 587 con STARTTLS para mejor compatibilidad con Railway
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587, // Puerto 587 en lugar de 465
-      secure: false, // false para puerto 587 (usa STARTTLS)
-      auth: {
-        user: this.configService.get<string>('MAIL_USER'),
-        pass: this.configService.get<string>('MAIL_PASSWORD'),
-      },
-      // Configuraciones para producción
-      tls: {
-        rejectUnauthorized: true,
-        minVersion: 'TLSv1.2',
-      },
-      pool: true, // pooling de conexiones para mejor rendimiento
-      maxConnections: 5,
-      maxMessages: 100,
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
+    // Configurar OAuth2 Client de Google
+    this.oauth2Client = new google.auth.OAuth2(
+      this.configService.get<string>('GOOGLE_CLIENT_ID'),
+      this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
+      this.configService.get<string>('GOOGLE_REDIRECT_URI'),
+    );
+
+    // Establecer el refresh token
+    const refreshToken = this.configService.get<string>('GMAIL_REFRESH_TOKEN');
+    if (refreshToken) {
+      this.oauth2Client.setCredentials({
+        refresh_token: refreshToken,
+      });
+    }
+
+    // Inicializar el transporter de forma asíncrona
+    this.initializeTransporter().catch((error) => {
+      console.error(
+        '❌ Error crítico inicializando MailService:',
+        error.message,
+      );
     });
+  }
 
-    // Log de configuración al iniciar
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-    const mailUser = this.configService.get<string>('MAIL_USER');
-    const mailPassword = this.configService.get<string>('MAIL_PASSWORD');
+  private async initializeTransporter() {
+    try {
+      console.log('📧 Inicializando MailService con Gmail API (OAuth2)...');
 
-    console.log('📧 MailService inicializado');
-    console.log(
-      '🌍 FRONTEND_URL:',
-      frontendUrl || 'NO CONFIGURADA (usando localhost por defecto)',
-    );
-    console.log('📨 MAIL_USER:', mailUser || 'NO CONFIGURADO');
-    console.log(
-      '🔑 MAIL_PASSWORD:',
-      mailPassword
-        ? `Configurado (${mailPassword.length} caracteres)`
-        : 'NO CONFIGURADO',
-    );
+      // Obtener access token usando el refresh token
+      const accessToken = await this.getAccessToken();
 
-    this.verifyConnection();
+      // Configurar transporter con OAuth2
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          type: 'OAuth2',
+          user: this.configService.get<string>('MAIL_USER'),
+          clientId: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+          clientSecret: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
+          refreshToken: this.configService.get<string>('GMAIL_REFRESH_TOKEN'),
+          accessToken: accessToken,
+        },
+      } as any);
+
+      // Log de configuración al iniciar
+      const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+      const mailUser = this.configService.get<string>('MAIL_USER');
+      const gmailRefreshToken = this.configService.get<string>(
+        'GMAIL_REFRESH_TOKEN',
+      );
+
+      console.log('📧 MailService inicializado con Gmail API (OAuth2)');
+      console.log(
+        '🌍 FRONTEND_URL:',
+        frontendUrl || 'NO CONFIGURADA (usando localhost por defecto)',
+      );
+      console.log('📨 MAIL_USER:', mailUser || 'NO CONFIGURADO');
+      console.log(
+        '🔑 GMAIL_REFRESH_TOKEN:',
+        gmailRefreshToken
+          ? `Configurado (${gmailRefreshToken.length} caracteres)`
+          : 'NO CONFIGURADO',
+      );
+
+      await this.verifyConnection();
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('❌ Error inicializando Gmail API:', error.message);
+      console.error('⚠️ Verifica que hayas configurado correctamente:');
+      console.error('   - GOOGLE_CLIENT_ID');
+      console.error('   - GOOGLE_CLIENT_SECRET');
+      console.error('   - GMAIL_REFRESH_TOKEN');
+      console.error('   - MAIL_USER');
+      this.isInitialized = false;
+    }
+  }
+
+  private async getAccessToken(): Promise<string> {
+    try {
+      const { token } = await this.oauth2Client.getAccessToken();
+      return token;
+    } catch (error) {
+      console.error(
+        '❌ Error obteniendo access token de Gmail:',
+        error.message,
+      );
+      throw new Error('No se pudo obtener el access token de Gmail');
+    }
   }
 
   private async verifyConnection() {
     try {
-      console.log('🔍 Verificando conexión SMTP...');
-      console.log('📡 Host: smtp.gmail.com:587 (STARTTLS)');
+      console.log('🔍 Verificando conexión con Gmail API...');
       await this.transporter.verify();
-      console.log('✅ Conexión SMTP verificada correctamente');
+      console.log('✅ Conexión con Gmail API verificada correctamente');
     } catch (error) {
-      console.error('❌ Error al verificar conexión SMTP:', error.message);
+      console.error(
+        '❌ Error al verificar conexión con Gmail API:',
+        error.message,
+      );
       console.error('📊 Código de error:', error.code);
 
-      if (error.code === 'ETIMEDOUT' || error.code === 'ECONNECTION') {
+      if (error.code === 'EAUTH' || error.responseCode === 535) {
         console.error(
-          '⚠️ ERROR DE CONEXIÓN: Railway no puede conectarse a Gmail',
+          '🔐 ERROR DE AUTENTICACIÓN: Credenciales OAuth2 inválidas',
         );
-        console.error('💡 POSIBLES SOLUCIONES:');
-        console.error('   1. Railway puede estar bloqueando el puerto SMTP');
-        console.error(
-          '   2. Considera usar un servicio de email alternativo como:',
-        );
-        console.error('      - Resend (https://resend.com)');
-        console.error('      - SendGrid (https://sendgrid.com)');
-        console.error('      - AWS SES');
-      } else if (error.code === 'EAUTH' || error.responseCode === 535) {
-        console.error('🔐 ERROR DE AUTENTICACIÓN: Credenciales inválidas');
-        console.error(
-          '⚠️ IMPORTANTE: Usa una Contraseña de Aplicación de Google',
-        );
-        console.error(
-          '📝 Guía: https://support.google.com/accounts/answer/185833',
-        );
+        console.error('⚠️ SOLUCIÓN: Regenera el GMAIL_REFRESH_TOKEN');
+        console.error('📝 Ejecuta: npm run gmail:auth');
+      } else {
+        console.error('⚠️ ERROR: Verifica tu configuración de Gmail API');
       }
     }
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string) {
+    // Verificar que el servicio esté inicializado
+    if (!this.isInitialized) {
+      console.error(
+        '❌ MailService no está inicializado. Intentando reinicializar...',
+      );
+      await this.initializeTransporter();
+      if (!this.isInitialized) {
+        throw new Error('El servicio de correo no está disponible');
+      }
+    }
+
     // URL del frontend donde el usuario ingresará la nueva contraseña
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     const baseUrl =
@@ -94,28 +145,32 @@ export class MailService {
     const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
 
     // Log para debug
-    console.log('📧 Intentando enviar email de reset password');
+    console.log('📧 Intentando enviar email de reset password con Gmail API');
     console.log('📬 Destinatario:', email);
     console.log('🔗 URL de reset generada:', resetUrl);
-    console.log('🌍 FRONTEND_URL configurada:', frontendUrl);
-    console.log(
-      '🔐 MAIL_USER:',
-      this.configService.get<string>('MAIL_USER')
-        ? 'Configurado'
-        : 'NO CONFIGURADO',
-    );
-    console.log(
-      '🔑 MAIL_PASSWORD:',
-      this.configService.get<string>('MAIL_PASSWORD')
-        ? 'Configurado'
-        : 'NO CONFIGURADO',
-    );
 
-    const mailOptions = {
-      from: `"MiloAssistant Security" <${this.configService.get<string>('MAIL_USER')}>`,
-      to: email,
-      subject: 'Restablecer Contraseña - MiloAssistant',
-      html: `
+    try {
+      // Obtener un nuevo access token antes de enviar
+      const accessToken = await this.getAccessToken();
+
+      // Actualizar el transporter con el nuevo access token
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          type: 'OAuth2',
+          user: this.configService.get<string>('MAIL_USER'),
+          clientId: this.configService.get<string>('GOOGLE_CLIENT_ID'),
+          clientSecret: this.configService.get<string>('GOOGLE_CLIENT_SECRET'),
+          refreshToken: this.configService.get<string>('GMAIL_REFRESH_TOKEN'),
+          accessToken: accessToken,
+        },
+      } as any);
+
+      const mailOptions = {
+        from: `"MiloAssistant Security" <${this.configService.get<string>('MAIL_USER')}>`,
+        to: email,
+        subject: 'Restablecer Contraseña - MiloAssistant',
+        html: `
         <!DOCTYPE html>
         <html lang="es">
         <head>
@@ -238,65 +293,31 @@ export class MailService {
         </body>
         </html>
       `,
-    };
+      };
 
-    try {
       const info = await this.transporter.sendMail(mailOptions);
       console.log('✅ Email enviado exitosamente a:', email);
       console.log('📬 Message ID:', info.messageId);
       console.log('📊 Response:', info.response);
       return { success: true, messageId: info.messageId };
     } catch (error) {
-      console.error('❌ Error enviando correo:', error);
+      console.error('❌ Error enviando correo con Gmail API:', error);
       console.error('❌ Detalles del error:', {
         code: error.code,
-        command: error.command,
-        response: error.response,
-        responseCode: error.responseCode,
         message: error.message,
       });
 
-      // Errores específicos de autenticación
       if (
         error.code === 'EAUTH' ||
-        error.responseCode === 535 ||
-        error.message?.includes('Invalid login')
+        error.message?.includes('Invalid credentials')
       ) {
         console.error(
-          '🔐 ERROR DE AUTENTICACIÓN: Las credenciales de Gmail son inválidas',
+          '🔐 ERROR DE AUTENTICACIÓN: Las credenciales OAuth2 son inválidas',
         );
         console.error(
-          '⚠️ SOLUCIÓN: Asegúrate de usar una Contraseña de Aplicación de Google, NO tu contraseña normal',
+          '⚠️ SOLUCIÓN: Regenera el GMAIL_REFRESH_TOKEN ejecutando: npm run gmail:auth',
         );
-        console.error(
-          '📝 Cómo obtenerla: https://support.google.com/accounts/answer/185833',
-        );
-        console.error('Pasos:');
-        console.error(
-          '1. Ve a tu cuenta de Google → Seguridad → Verificación en 2 pasos (debe estar activada)',
-        );
-        console.error('2. Busca "Contraseñas de aplicaciones"');
-        console.error(
-          '3. Genera una contraseña para "Correo" o "Otra aplicación"',
-        );
-        console.error(
-          '4. Copia la contraseña de 16 caracteres (sin espacios) y úsala en MAIL_PASSWORD',
-        );
-        throw new Error(
-          'Error de autenticación SMTP: Verifica las credenciales de Gmail',
-        );
-      }
-
-      // Errores de conexión
-      if (
-        error.code === 'ETIMEDOUT' ||
-        error.code === 'ECONNREFUSED' ||
-        error.code === 'ENOTFOUND'
-      ) {
-        console.error(
-          '🌐 ERROR DE CONEXIÓN: No se pudo conectar al servidor SMTP',
-        );
-        throw new Error('No se pudo conectar al servidor de correo');
+        throw new Error('Error de autenticación con Gmail API');
       }
 
       throw new Error('No se pudo enviar el correo de recuperación');

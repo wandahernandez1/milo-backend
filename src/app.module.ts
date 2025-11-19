@@ -29,6 +29,9 @@ import { Task } from './modules/tasks/task.entity';
       database: process.env.DATABASE_NAME || 'basededatosmilo',
       entities: [User, Note, Task],
 
+      // ⚠️ TEMPORAL: dropSchema elimina TODA la base de datos al iniciar
+      // Solo usar en desarrollo para limpiar datos corruptos
+      dropSchema: process.env.DROP_SCHEMA === 'true',
       synchronize:
         process.env.TYPEORM_SYNC === 'true' ||
         process.env.NODE_ENV !== 'production',
