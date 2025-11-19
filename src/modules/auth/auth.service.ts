@@ -235,34 +235,31 @@ export class AuthService {
       let emailSent = false;
       let emailError = null;
 
-      // Intento 1: Gmail API (para usuarios de Gmail)
+      // Intento 1: Resend API (servicio principal)
       try {
-        console.log('📨 [forgotPassword] Intentando enviar con Gmail API...');
-        await this.mailService.sendPasswordResetEmail(email, resetToken);
+        console.log('📨 [forgotPassword] Intentando enviar con Resend API...');
+        await this.resendMailService.sendPasswordResetEmail(email, resetToken);
         emailSent = true;
-        console.log('✅ Email enviado exitosamente con Gmail API');
-      } catch (gmailError) {
-        emailError = gmailError;
+        console.log('✅ Email enviado exitosamente con Resend API');
+      } catch (resendError) {
+        emailError = resendError;
         console.warn(
-          '⚠️ [forgotPassword] Gmail API falló, intentando con Resend...',
+          '⚠️ [forgotPassword] Resend API falló, intentando con Gmail...',
         );
-        console.warn('Error de Gmail:', gmailError.message);
+        console.warn('Error de Resend:', resendError.message);
 
-        // Intento 2: Resend API (respaldo para todos los usuarios)
+        // Intento 2: Gmail API (respaldo para todos los usuarios)
         try {
-          console.log('📨 [forgotPassword] Intentando enviar con Resend...');
-          await this.resendMailService.sendPasswordResetEmail(
-            email,
-            resetToken,
-          );
+          console.log('📨 [forgotPassword] Intentando enviar con Gmail API...');
+          await this.mailService.sendPasswordResetEmail(email, resetToken);
           emailSent = true;
-          console.log('✅ Email enviado exitosamente con Resend');
-        } catch (resendError) {
+          console.log('✅ Email enviado exitosamente con Gmail');
+        } catch (gmailError) {
           console.error(
-            '❌ [forgotPassword] Resend también falló:',
-            resendError.message,
+            '❌ [forgotPassword] Gmail también falló:',
+            gmailError.message,
           );
-          emailError = resendError;
+          emailError = gmailError;
         }
       }
 
