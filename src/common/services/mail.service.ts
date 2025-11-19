@@ -7,6 +7,7 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private configService: ConfigService) {
+    // Configurar transporter de nodemailer para Gmail
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
