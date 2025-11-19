@@ -86,8 +86,20 @@ export class MailService {
       }
 
       // Configurar transporter con OAuth2
+
+      const smtpConfig = this.isProduction
+        ? {
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // true para 465, false para otros puertos
+            requireTLS: true,
+          }
+        : {
+            service: 'gmail', //
+          };
+
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        ...smtpConfig,
         auth: {
           type: 'OAuth2',
           user: mailUser,
@@ -95,6 +107,15 @@ export class MailService {
           clientSecret: clientSecret,
           refreshToken: refreshToken,
           accessToken: accessToken,
+        },
+        // Timeouts más largos para producción
+        connectionTimeout: this.isProduction ? 30000 : 10000,
+        greetingTimeout: this.isProduction ? 30000 : 10000,
+        socketTimeout: this.isProduction ? 30000 : 10000,
+        tls: {
+          rejectUnauthorized: true,
+          minVersion: 'TLSv1.2',
+          ciphers: 'HIGH:!aNULL:!MD5',
         },
       } as any);
 
@@ -275,6 +296,13 @@ export class MailService {
     const maxRetries = domainInfo.requiresSlowDelivery ? 5 : 3; // Más intentos para dominios estrictos
     let lastError;
 
+    const configuredPort = this.configService.get<string>('SMTP_PORT');
+    const smtpPort = configuredPort
+      ? parseInt(configuredPort, 10)
+      : this.isProduction
+        ? 587
+        : 465;
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         if (this.enableDebugLogs) {
@@ -284,12 +312,13 @@ export class MailService {
         // Obtener un nuevo access token antes de enviar
         const accessToken = await this.getAccessToken();
 
-        // Actualizar el transporter con el nuevo access token
-        // Configuración mejorada para dominios externos
+        const isSecure = smtpPort === 465;
+
         this.transporter = nodemailer.createTransport({
           host: 'smtp.gmail.com',
-          port: 465,
-          secure: true, // true para 465, false para otros puertos
+          port: smtpPort,
+          secure: isSecure, // true para 465, false para 587
+          requireTLS: !isSecure, // Requerido para puerto 587
           auth: {
             type: 'OAuth2',
             user: this.configService.get<string>('MAIL_USER'),
@@ -306,11 +335,10 @@ export class MailService {
           maxMessages: 100, // Aumentado para mejor throughput
           rateDelta: 20000, // 20 segundos de ventana
           rateLimit: 14, // Límite de Gmail: ~14 mensajes por segundo
-          // Opciones de socket para evitar timeouts con servidores lentos
-          // Ajustar timeouts según el ambiente
-          socketTimeout: this.isProduction ? 45000 : 60000,
-          greetingTimeout: 30000,
-          connectionTimeout: this.isProduction ? 45000 : 60000,
+          // Timeouts más largos para producción (evitar ETIMEDOUT)
+          socketTimeout: this.isProduction ? 60000 : 45000, // 60s en prod, 45s en dev
+          greetingTimeout: this.isProduction ? 40000 : 30000, // 40s en prod, 30s en dev
+          connectionTimeout: this.isProduction ? 60000 : 45000, // 60s en prod, 45s en dev
           // Opciones de TLS mejoradas
           tls: {
             rejectUnauthorized: true,
@@ -581,11 +609,33 @@ Este es un correo automático, por favor no responda a este mensaje.
           throw new Error('Error de autenticación con Gmail API');
         }
 
+        // Si es error de timeout de conexión en producción, sugerir verificar firewall
+        if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
+          this.logger.error(
+            `ERROR DE TIMEOUT: No se pudo conectar al servidor SMTP (${error.command})`,
+          );
+          if (this.isProduction) {
+            this.logger.error(
+              'Esto puede deberse a restricciones de firewall en el servidor de producción',
+            );
+            this.logger.error(
+              `Puerto actual: ${smtpPort}. Verifica que el puerto esté abierto para conexiones salientes`,
+            );
+          }
+          // Continuar con reintentos para timeouts
+        }
+
         // Si no es el último intento, esperar antes de reintentar
         if (attempt < maxRetries) {
-          // Backoff exponencial ajustado según el tipo de dominio
-          const baseWaitTime = domainInfo.requiresSlowDelivery ? 3000 : 2000;
-          const waitTime = attempt * baseWaitTime; // 2s/3s, 4s/6s, 6s/9s, etc.
+          // Backoff exponencial ajustado según el tipo de dominio y tipo de error
+          let baseWaitTime = domainInfo.requiresSlowDelivery ? 3000 : 2000;
+
+          // Si es timeout, esperar más tiempo antes de reintentar
+          if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKET') {
+            baseWaitTime = baseWaitTime * 2; // Duplicar tiempo de espera para timeouts
+          }
+
+          const waitTime = attempt * baseWaitTime;
           if (this.enableDebugLogs) {
             this.logger.log(
               `Esperando ${waitTime}ms antes del siguiente intento...`,
