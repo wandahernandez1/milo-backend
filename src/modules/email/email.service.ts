@@ -359,7 +359,12 @@ ${!isFirstTimePassword ? 'Si no solicitaste este cambio, puedes ignorar este ema
 
     // Sistema dual: Intenta SendGrid primero, Gmail API como respaldo
     this.logger.log('📨 Intento 1: SendGrid...');
-    const sendGridResult = await this.sendEmail(email, title, text.trim(), html);
+    const sendGridResult = await this.sendEmail(
+      email,
+      title,
+      text.trim(),
+      html,
+    );
 
     if (sendGridResult.success) {
       this.logger.log('✅ Email enviado exitosamente con SendGrid');
