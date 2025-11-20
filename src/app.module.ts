@@ -9,6 +9,7 @@ import { NotesModule } from './modules/notes/notes.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { GoogleModule } from './modules/google/google.module';
 import { NewsModule } from './modules/news/news.module';
+import { EmailModule } from './modules/email/email.module';
 
 import { User } from './modules/users/user.entity';
 import { Note } from './modules/notes/note.entity';
@@ -29,8 +30,6 @@ import { Task } from './modules/tasks/task.entity';
       database: process.env.DATABASE_NAME || 'basededatosmilo',
       entities: [User, Note, Task],
 
-      // ⚠️ TEMPORAL: dropSchema elimina TODA la base de datos al iniciar
-      // Solo usar en desarrollo para limpiar datos corruptos
       dropSchema: process.env.DROP_SCHEMA === 'true',
       synchronize:
         process.env.TYPEORM_SYNC === 'true' ||
@@ -49,6 +48,7 @@ import { Task } from './modules/tasks/task.entity';
     GoogleModule,
     EventosModule,
     NewsModule,
+    EmailModule,
   ],
 })
 export class AppModule {}

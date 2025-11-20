@@ -7,13 +7,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from '../../common/strategies/jwt.strategy';
 import { User } from '../users/user.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MailService } from '../../common/services/mail.service';
-import { ResendMailService } from '../../common/services/resend-mail.service';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     UsersModule,
+    EmailModule, // Importar EmailModule en lugar de usar EmailService directamente
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -25,7 +25,7 @@ import { ResendMailService } from '../../common/services/resend-mail.service';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, MailService, ResendMailService],
+  providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
   exports: [AuthService],
 })

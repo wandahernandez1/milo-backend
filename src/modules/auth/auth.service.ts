@@ -9,8 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from '../users/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
-import { MailService } from '../../common/services/mail.service';
-import { ResendMailService } from '../../common/services/resend-mail.service';
+import { EmailService } from '../email/email.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -21,8 +20,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly mailService: MailService,
-    private readonly resendMailService: ResendMailService,
+    private readonly emailService: EmailService,
   ) {
     this.googleClient = new OAuth2Client(
       this.configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -197,15 +195,10 @@ export class AuthService {
         };
       }
 
-      if (!user.password) {
-        console.log(
-          '⚠️ [forgotPassword] Usuario sin contraseña (registro con Google):',
-          email,
-        );
-        throw new BadRequestException(
-          'Esta cuenta fue creada con Google. Por favor, inicia sesión con Google para acceder a tu cuenta.',
-        );
-      }
+      // Permitir recuperación incluso si no tiene contraseña
+      // Esto permite a usuarios de Google establecer una contraseña
+      console.log('📧 [forgotPassword] Procesando solicitud para:', email);
+      console.log('🔐 Usuario tiene contraseña:', !!user.password);
 
       // Generar token de recuperacion
       const resetToken = crypto.randomBytes(32).toString('hex');
@@ -231,42 +224,18 @@ export class AuthService {
         resetToken.substring(0, 10) + '...',
       );
 
-      // Sistema dual de emails: Intenta Gmail primero, luego Resend como respaldo
-      let emailSent = false;
-      let emailError = null;
+      // Enviar email de recuperación usando SendGrid
+      console.log('📨 [forgotPassword] Enviando email con SendGrid...');
+      const emailResult = await this.emailService.sendPasswordResetEmail(
+        email,
+        resetToken,
+        !user.password, // Indica si es primera vez estableciendo contraseña
+      );
 
-      // Intento 1: Resend API (servicio principal)
-      try {
-        console.log('📨 [forgotPassword] Intentando enviar con Resend API...');
-        await this.resendMailService.sendPasswordResetEmail(email, resetToken);
-        emailSent = true;
-        console.log('✅ Email enviado exitosamente con Resend API');
-      } catch (resendError) {
-        emailError = resendError;
-        console.warn(
-          '⚠️ [forgotPassword] Resend API falló, intentando con Gmail...',
-        );
-        console.warn('Error de Resend:', resendError.message);
-
-        // Intento 2: Gmail API (respaldo para todos los usuarios)
-        try {
-          console.log('📨 [forgotPassword] Intentando enviar con Gmail API...');
-          await this.mailService.sendPasswordResetEmail(email, resetToken);
-          emailSent = true;
-          console.log('✅ Email enviado exitosamente con Gmail');
-        } catch (gmailError) {
-          console.error(
-            '❌ [forgotPassword] Gmail también falló:',
-            gmailError.message,
-          );
-          emailError = gmailError;
-        }
-      }
-
-      // Si ninguno de los dos servicios funcionó
-      if (!emailSent) {
+      if (!emailResult.success) {
         console.error(
-          '❌ [forgotPassword] Todos los servicios de email fallaron',
+          '❌ [forgotPassword] Error al enviar email:',
+          emailResult.error,
         );
 
         // Limpiar el token de la BD ya que no se pudo enviar el email
@@ -277,16 +246,19 @@ export class AuthService {
         );
 
         throw new BadRequestException(
-          'El servicio de recuperación de contraseña no está disponible temporalmente. ' +
-            'Por favor, intenta nuevamente más tarde o contacta con soporte.',
+          'No se pudo enviar el email de recuperación. Por favor, verifica que tu email esté registrado correctamente o intenta más tarde.',
         );
       }
 
+      console.log('✅ Email enviado exitosamente con SendGrid');
       console.log('✅ Proceso de forgot-password completado');
 
+      const responseMessage = !user.password
+        ? 'Hemos enviado un enlace a tu correo para establecer una contraseña. Esto te permitirá tener acceso dual (Google + Email/Contraseña). Por favor, revisa tu bandeja de entrada y spam.'
+        : 'Hemos enviado un enlace de recuperación a tu correo electrónico. Por favor, revisa tu bandeja de entrada y spam.';
+
       return {
-        message:
-          'Hemos enviado un enlace de recuperación a tu correo electrónico. Por favor, revisa tu bandeja de entrada y spam.',
+        message: responseMessage,
       };
     } catch (error) {
       // Si ya es un BadRequestException, lo dejamos pasar
