@@ -254,8 +254,8 @@ export class AuthService {
       console.log('✅ Proceso de forgot-password completado');
 
       const responseMessage = !user.password
-        ? 'Hemos enviado un enlace a tu correo para establecer una contraseña. Esto te permitirá tener acceso dual (Google + Email/Contraseña). Por favor, revisa tu bandeja de entrada y spam.'
-        : 'Hemos enviado un enlace de recuperación a tu correo electrónico. Por favor, revisa tu bandeja de entrada y spam.';
+        ? 'Se ha enviado un enlace de seguridad a su correo electrónico. Por favor, revise su bandeja de entrada y carpeta de spam.'
+        : 'Se ha enviado un enlace de recuperación a su correo electrónico. Por favor, revise su bandeja de entrada y carpeta de spam.';
 
       return {
         message: responseMessage,

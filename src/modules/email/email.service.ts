@@ -231,7 +231,6 @@ export class EmailService {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-    // Títulos y mensajes personalizados según el tipo de usuario
     const title = isFirstTimePassword
       ? 'Establecimiento de Contraseña'
       : 'Recuperación de Contraseña';
