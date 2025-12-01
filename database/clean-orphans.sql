@@ -12,13 +12,13 @@ FROM task t
 LEFT JOIN users u ON t.userId = u.id 
 WHERE u.id IS NULL;
 
--- 3. ELIMINAR notas huérfanas (ejecuta esto si quieres borrarlas)
+-- 3. ELIMINAR notas huérfanas 
 DELETE n 
 FROM note n 
 LEFT JOIN users u ON n.userId = u.id 
 WHERE u.id IS NULL;
 
--- 4. ELIMINAR tareas huérfanas (ejecuta esto si quieres borrarlas)
+-- 4. ELIMINAR tareas huérfanas 
 DELETE t 
 FROM task t 
 LEFT JOIN users u ON t.userId = u.id 

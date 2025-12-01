@@ -4,6 +4,7 @@ import {
   NotFoundException,
   InternalServerErrorException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { google } from 'googleapis';
 import { ConfigService } from '@nestjs/config';
@@ -23,6 +24,7 @@ interface CalendarEventInput {
 
 @Injectable()
 export class GoogleService {
+  private readonly logger = new Logger(GoogleService.name);
   private oauth2Client;
   createCalendarEvent: any;
 
@@ -42,16 +44,47 @@ export class GoogleService {
     timezone: string,
   ): { start: any; end: any } {
     const today = new Date();
+    let textToProcess = naturalTime.trim();
 
-    const parsedDate = chrono.es.parse(naturalTime, today, {
+    textToProcess = textToProcess
+      .replace(/(\d{1,2})\s*hs?\b/gi, '$1:00')
+      .replace(/(\d{1,2})\s*de\s+la\s+tarde/gi, (match, hour) => {
+        const h = parseInt(hour);
+        return h < 12 ? `${h + 12}:00` : `${h}:00`;
+      })
+      .replace(/(\d{1,2})\s*de\s+la\s+ma[ñn]ana/gi, '$1:00')
+      .replace(/(\d{1,2})\s*de\s+la\s+noche/gi, (match, hour) => {
+        const h = parseInt(hour);
+        return h < 12 ? `${h + 12}:00` : `${h}:00`;
+      });
+
+    this.logger.log(`📝 Texto normalizado: "${textToProcess}"`);
+
+    const hasTime = /\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?/i.test(textToProcess);
+    const hasDay =
+      /(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|\d{1,2})/i.test(
+        textToProcess,
+      );
+
+    if (hasDay && !hasTime) {
+      textToProcess = `${textToProcess} a las 9:00`;
+      this.logger.log(`📅 Agregando hora por defecto: "${textToProcess}"`);
+    }
+
+    const parsedDate = chrono.es.parse(textToProcess, today, {
       forwardDate: true,
     });
 
     if (!parsedDate || parsedDate.length === 0) {
+      this.logger.error(
+        ` No se pudo parsear: "${naturalTime}" (normalizado: "${textToProcess}")`,
+      );
       throw new BadRequestException(
-        'No pude entender la fecha y hora proporcionada por el chat.',
+        'No pude entender la fecha y hora proporcionada. Intenta con más detalles, por ejemplo: "mañana a las 15" o "el viernes 6 a las 18".',
       );
     }
+
+    this.logger.log(`✅ Fecha parseada correctamente: ${parsedDate[0].text}`);
 
     const start = parsedDate[0].start.date();
     let end = parsedDate[0].end ? parsedDate[0].end.date() : addHours(start, 1);
@@ -211,7 +244,7 @@ export class GoogleService {
 
       if (!user.googleCalendarAccessToken || !user.googleCalendarRefreshToken) {
         throw new UnauthorizedException(
-          'Cuenta de Google no conectada correctamente.',
+          'Tu cuenta de Google Calendar no está conectada. Por favor, ve a tu perfil y conecta tu cuenta de Google para poder crear eventos.',
         );
       }
 
@@ -297,10 +330,17 @@ export class GoogleService {
 
       return insertRes.data;
     } catch (err) {
-      console.error(
-        '📥 Respuesta completa de Google:',
-        JSON.stringify(err.response?.data, null, 2),
-      );
+      this.logger.error(' Error creando evento en Google Calendar:');
+      this.logger.error(`Mensaje: ${err.message}`);
+      this.logger.error(`Código: ${err.code}`);
+      this.logger.error(`Stack: ${err.stack}`);
+
+      if (err.response?.data) {
+        this.logger.error(
+          '📥 Respuesta de Google:',
+          JSON.stringify(err.response.data, null, 2),
+        );
+      }
 
       if (err instanceof BadRequestException) throw err;
 
@@ -317,7 +357,7 @@ export class GoogleService {
       }
 
       throw new InternalServerErrorException(
-        'Error creando evento en Google Calendar.',
+        `Error creando evento en Google Calendar: ${err.message}`,
       );
     }
   }
