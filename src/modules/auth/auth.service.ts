@@ -301,4 +301,9 @@ export class AuthService {
         'Contraseña establecida correctamente. Ahora puedes iniciar sesión con email y contraseña.',
     };
   }
+
+  //  Obtiene usuario con sus relaciones (tasks y notes)
+  async getUserWithRelations(userId: string): Promise<User> {
+    return this.usersService.findOneByIdWithRelations(userId);
+  }
 }

@@ -69,14 +69,18 @@ export class AuthController {
   // Perfil del usuario autenticado
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getProfile(@Request() req) {
-    const { password, ...user } = req.user;
+  async getProfile(@Request() req) {
+    // Cargar usuario con relaciones de tasks y notes
+    const userWithRelations = await this.authService.getUserWithRelations(
+      req.user.id,
+    );
+    const { password, ...user } = userWithRelations;
     // Aplicar lógica de prioridad de avatar
     const avatarToReturn = user.avatar || user.googleAvatar || null;
     return {
       ...user,
       avatar: avatarToReturn,
-      hasPassword: !!req.user.password,
+      hasPassword: !!userWithRelations.password,
     };
   }
 

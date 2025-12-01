@@ -43,6 +43,16 @@ export class UsersService {
     return user;
   }
 
+  //  Busca por ID con relaciones (tasks y notes)
+  async findOneByIdWithRelations(id: string): Promise<User> {
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['tasks', 'notes'],
+    });
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    return user;
+  }
+
   //  Crea usuario (con soporte para login Google sin contraseña)
   async create(userDto: UserCreateInput): Promise<User> {
     if (!userDto.email) {
