@@ -43,11 +43,18 @@ export class GoogleService {
     naturalTime: string,
     timezone: string,
   ): { start: any; end: any } {
+    this.logger.log(`🔍 Parseando tiempo natural: "${naturalTime}"`);
+
     const today = new Date();
     let textToProcess = naturalTime.trim();
 
+    // Normalización de formatos de hora en español (ORDEN IMPORTANTE)
     textToProcess = textToProcess
+      // Primero: manejar horas con minutos + hs (ej: "20:30hs")
+      .replace(/(\d{1,2}):(\d{2})\s*hs?\b/gi, '$1:$2')
+      // Segundo: manejar horas sin minutos + hs (ej: "20hs")
       .replace(/(\d{1,2})\s*hs?\b/gi, '$1:00')
+      // Tercero: "de la tarde/mañana/noche"
       .replace(/(\d{1,2})\s*de\s+la\s+tarde/gi, (match, hour) => {
         const h = parseInt(hour);
         return h < 12 ? `${h + 12}:00` : `${h}:00`;
@@ -56,16 +63,28 @@ export class GoogleService {
       .replace(/(\d{1,2})\s*de\s+la\s+noche/gi, (match, hour) => {
         const h = parseInt(hour);
         return h < 12 ? `${h + 12}:00` : `${h}:00`;
-      });
+      })
+      // Cuarto: manejar "a las XX" sin ":"
+      .replace(/a\s+las?\s+(\d{1,2})(?!:)/gi, 'a las $1:00')
+      // Quinto: normalizar "que viene" para chrono
+      .replace(
+        /\b(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\s+que\s+viene\b/gi,
+        'próximo $1',
+      );
 
     this.logger.log(`📝 Texto normalizado: "${textToProcess}"`);
 
-    const hasTime = /\d{1,2}(?::\d{2})?(?:\s*(?:am|pm))?/i.test(textToProcess);
+    const hasTime = /\d{1,2}:\d{2}/i.test(textToProcess);
     const hasDay =
-      /(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|\d{1,2})/i.test(
+      /(?:lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|ma[ñn]ana|hoy|próximo|\d{1,2})/i.test(
         textToProcess,
       );
 
+    this.logger.log(
+      `🔎 Detección - Tiene hora: ${hasTime}, Tiene día: ${hasDay}`,
+    );
+
+    // Si tiene día pero no hora, agregar hora por defecto
     if (hasDay && !hasTime) {
       textToProcess = `${textToProcess} a las 9:00`;
       this.logger.log(`📅 Agregando hora por defecto: "${textToProcess}"`);
@@ -77,7 +96,7 @@ export class GoogleService {
 
     if (!parsedDate || parsedDate.length === 0) {
       this.logger.error(
-        ` No se pudo parsear: "${naturalTime}" (normalizado: "${textToProcess}")`,
+        `❌ No se pudo parsear: "${naturalTime}" (normalizado: "${textToProcess}")`,
       );
       throw new BadRequestException(
         'No pude entender la fecha y hora proporcionada. Intenta con más detalles, por ejemplo: "mañana a las 15" o "el viernes 6 a las 18".',
@@ -85,6 +104,13 @@ export class GoogleService {
     }
 
     this.logger.log(`✅ Fecha parseada correctamente: ${parsedDate[0].text}`);
+    this.logger.log(
+      `📊 Datos del parse: ${JSON.stringify({
+        hasHour: parsedDate[0].start.isCertain('hour'),
+        hasMinute: parsedDate[0].start.isCertain('minute'),
+        hasDay: parsedDate[0].start.isCertain('day'),
+      })}`,
+    );
 
     const start = parsedDate[0].start.date();
     let end = parsedDate[0].end ? parsedDate[0].end.date() : addHours(start, 1);
@@ -95,14 +121,19 @@ export class GoogleService {
 
     if (isFullDay) {
       const startDate = format(start, 'yyyy-MM-dd');
-
       const endDate = format(addDays(start, 1), 'yyyy-MM-dd');
+
+      this.logger.log(`📆 Evento de día completo: ${startDate} → ${endDate}`);
 
       return {
         start: { date: startDate },
         end: { date: endDate },
       };
     }
+
+    this.logger.log(
+      `⏰ Evento con hora específica: ${start.toISOString()} → ${end.toISOString()}`,
+    );
 
     return {
       start: {
