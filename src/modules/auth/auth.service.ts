@@ -250,24 +250,17 @@ export class AuthService {
         );
       }
 
-      console.log('✅ Email enviado exitosamente con SendGrid');
-      console.log('✅ Proceso de forgot-password completado');
-
-      const responseMessage = !user.password
-        ? 'Se ha enviado un enlace de seguridad a su correo electrónico. Por favor, revise su bandeja de entrada y carpeta de spam.'
-        : 'Se ha enviado un enlace de recuperación a su correo electrónico. Por favor, revise su bandeja de entrada y carpeta de spam.';
-
       return {
-        message: responseMessage,
+        message:
+          'Si el correo electrónico está registrado, recibirás un enlace de recuperación. Por favor, revisa tu bandeja de entrada y carpeta de spam.',
       };
     } catch (error) {
-      // Si ya es un BadRequestException, lo dejamos pasar
       if (error instanceof BadRequestException) {
         throw error;
       }
 
-      console.error('❌ [forgotPassword] Error inesperado:', error);
-      console.error('❌ [forgotPassword] Stack:', error.stack);
+      console.error(' [forgotPassword] Error inesperado:', error);
+      console.error(' [forgotPassword] Stack:', error.stack);
 
       throw new BadRequestException(
         'Ocurrió un error al procesar tu solicitud. Por favor, intenta nuevamente más tarde.',
