@@ -34,7 +34,7 @@ import { Task } from './modules/tasks/task.entity';
       synchronize:
         process.env.TYPEORM_SYNC === 'true' ||
         process.env.NODE_ENV !== 'production',
-      logging: process.env.NODE_ENV !== 'production',
+      logging: false,
       ssl:
         process.env.NODE_ENV === 'production'
           ? { rejectUnauthorized: false }
