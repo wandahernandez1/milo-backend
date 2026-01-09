@@ -33,7 +33,7 @@
 | Entorno           | URL                                                                              | Estado                                                                                                 |
 | ----------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | **🔴 Producción** | [https://milo-backend-4dga.onrender.com](https://milo-backend-4dga.onrender.com) | [![Render Status](https://img.shields.io/badge/Render-Online-success?logo=render)](https://render.com) |
-| **🟡 Frontend**   | [https://milo-assistant.vercel.app](https://milo-assistant.vercel.app)           | [![Vercel Status](https://img.shields.io/badge/Vercel-Online-success?logo=vercel)](https://vercel.com) |
+| **🟡 Frontend**   | [https://milo-frontend-six.vercel.app](https://milo-frontend-six.vercel.app)     | [![Vercel Status](https://img.shields.io/badge/Vercel-Online-success?logo=vercel)](https://vercel.com) |
 | **🗄️ Database**   | mysql-wandahernandez.alwaysdata.net                                              | [![AlwaysData](https://img.shields.io/badge/AlwaysData-Online-success)](https://alwaysdata.com)        |
 
 ## 📐 Arquitectura
